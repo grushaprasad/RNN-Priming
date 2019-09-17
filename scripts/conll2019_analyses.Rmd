@@ -460,7 +460,7 @@ summary(model5.3)
 #### Load in accuracy data
 ```{r, cache=TRUE}
 
-acc_dat <- read.table('../tied_accuracies/all_acc.dat', header = TRUE)
+acc_dat <- read.table('../data/all_acc.dat', header = TRUE)
 
 acc_orc <- subset(acc_dat, syntax == 'obj_rel_across')
 acc_orc$merge_var <- paste(acc_orc$corpus_size, acc_orc$d_model, acc_orc$corpus_var, sep = '')

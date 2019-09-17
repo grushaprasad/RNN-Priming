@@ -675,3 +675,199 @@ summary(model5.3)
     ## scl(nhd):() 0.000  0.000  0.000
 
 ### Analysis 6: Does D(RC, coordination) predict agreement prediction accuracy?
+
+#### Load in accuracy data
+
+``` r
+acc_dat <- read.table('../data/all_acc.dat', header = TRUE)
+
+acc_orc <- subset(acc_dat, syntax == 'obj_rel_across')
+acc_orc$merge_var <- paste(acc_orc$corpus_size, acc_orc$d_model, acc_orc$corpus_var, sep = '')
+#colnames(acc_orc)[colnames(acc_orc)=="accuracy"] <- "orc.acc"
+  
+acc_orrc <- subset(acc_dat, syntax == 'obj_rel_no_comp_across')
+acc_orrc$merge_var <- paste(acc_orrc$corpus_size, acc_orrc$d_model, acc_orrc$corpus_var, sep = '')
+#colnames(acc_orrc)[colnames(acc_orrc)=="accuracy"] <- "orrc.acc"
+
+acc_src <- subset(acc_dat, syntax == 'subj_rel')
+acc_src$merge_var <- paste(acc_src$corpus_size, acc_src$d_model, acc_src$corpus_var, sep = '')
+#colnames(acc_src)[colnames(acc_src)=="accuracy"] <- "src.acc"
+
+
+acc_scont <- subset(acc_dat, syntax == 'long_vp_coord')
+acc_scont$merge_var <- paste(acc_scont$corpus_size, acc_scont$d_model, acc_scont$corpus_var, sep = '')
+```
+
+#### Creating Figure 5b
+
+``` r
+## ORC
+
+
+orc_models <- subset(all20, adapt == 'orc' & diagonal != 'diagonal') %>% group_by(testRC, nhid, csize, clist) %>% summarise(corrected_diff = mean(corrected_diff)) %>% spread(key="testRC",value="corrected_diff")  %>%  mutate(prop =  `Test on RCs`/`Test on coordination`)
+
+orc_models$merge_var <- paste(orc_models$csize,'m',orc_models$nhid,orc_models$clist, sep = '')
+
+orc_models <- merge(orc_models, acc_orc, by = 'merge_var')
+orc_models$struc <- 'Unreduced Object RC'
+
+## ORRC
+
+orrc_models <- subset(all20, adapt == 'orrc' & diagonal != 'diagonal') %>% group_by(testRC, nhid, csize, clist) %>% summarise(corrected_diff = mean(corrected_diff)) %>% spread(key="testRC",value="corrected_diff")  %>%  mutate(prop =   `Test on RCs`/`Test on coordination`)
+
+orrc_models$merge_var <- paste(orrc_models$csize,'m',orrc_models$nhid,orrc_models$clist, sep = '')
+
+orrc_models <- merge(orrc_models, acc_orrc, by = 'merge_var')
+orrc_models$struc <- 'Reduced Object RC'
+
+alltypes <- rbind(orc_models, orrc_models)
+alltypes$csize <- factor(alltypes$csize)
+alltypes$nhid <- factor(alltypes$nhid)
+
+p <- ggplot(subset(alltypes, struc != 'Subject RC'), aes(x = prop, y = accuracy, color = nhid,  shape = nhid)) + geom_point() + geom_smooth(method='lm', se=FALSE) + facet_wrap(~struc) + scale_color_manual(values = purples) +  labs(x = 'D(RC, non-RC)', y = 'Accuracy on agreement prediction task', color = 'Number of \nhidden units', shape = 'Number of \nhidden units', size = 'Number of hidden units') + ylim(0,1)
+p
+```
+
+![](conll2019_analyses_files/figure-markdown_github/unnamed-chunk-18-1.png)
+
+``` r
+ggsave('analysis6_2.pdf', plot = p, device = "pdf", path = '../conll-plots/', width = 7, height = 4.3, units = "in")
+```
+
+``` r
+model_orc <- lm(accuracy ~ prop + scale(nhid) + scale(csize), data = orc_models)
+summary(model_orc)
+```
+
+    ## 
+    ## Call:
+    ## lm(formula = accuracy ~ prop + scale(nhid) + scale(csize), data = orc_models)
+    ## 
+    ## Residuals:
+    ##       Min        1Q    Median        3Q       Max 
+    ## -0.133788 -0.043008 -0.000639  0.029663  0.234649 
+    ## 
+    ## Coefficients:
+    ##               Estimate Std. Error t value Pr(>|t|)    
+    ## (Intercept)   0.651988   0.118473   5.503 5.58e-07 ***
+    ## prop         -0.006570   0.098092  -0.067    0.947    
+    ## scale(nhid)   0.056691   0.006928   8.183 7.66e-12 ***
+    ## scale(csize)  0.001191   0.007787   0.153    0.879    
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ## Residual standard error: 0.05927 on 71 degrees of freedom
+    ## Multiple R-squared:  0.4878, Adjusted R-squared:  0.4662 
+    ## F-statistic: 22.54 on 3 and 71 DF,  p-value: 2.327e-10
+
+``` r
+model_orrc <- lm(accuracy ~ prop + scale(nhid) + scale(csize), data = orrc_models)
+summary(model_orrc)
+```
+
+    ## 
+    ## Call:
+    ## lm(formula = accuracy ~ prop + scale(nhid) + scale(csize), data = orrc_models)
+    ## 
+    ## Residuals:
+    ##       Min        1Q    Median        3Q       Max 
+    ## -0.108004 -0.030533 -0.004433  0.028012  0.107728 
+    ## 
+    ## Coefficients:
+    ##               Estimate Std. Error t value Pr(>|t|)    
+    ## (Intercept)   0.702054   0.117200   5.990 7.84e-08 ***
+    ## prop         -0.083717   0.113875  -0.735   0.4647    
+    ## scale(nhid)   0.013204   0.005428   2.433   0.0175 *  
+    ## scale(csize) -0.003814   0.005480  -0.696   0.4887    
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ## Residual standard error: 0.04669 on 71 degrees of freedom
+    ## Multiple R-squared:  0.09099,    Adjusted R-squared:  0.05258 
+    ## F-statistic: 2.369 on 3 and 71 DF,  p-value: 0.07786
+
+#### Other structures
+
+``` r
+## SRC
+src_models <- subset(all20, adapt == 'src' & diagonal != 'diagonal') %>% group_by(testRC, nhid, csize, clist) %>% summarise(corrected_diff = mean(corrected_diff)) %>% spread(key="testRC",value="corrected_diff")  %>%  mutate(prop =   `Test on RCs`/`Test on coordination`)
+
+src_models$merge_var <- paste(src_models$csize,'m',src_models$nhid,src_models$clist, sep = '')
+
+src_models <- merge(src_models, acc_src, by = 'merge_var')
+src_models$struc <- 'Subject RC'
+
+## SCONT
+
+scont_models <- subset(all20, adapt == 'scont' & diagonal != 'diagonal') %>% group_by(testRC, nhid, csize, clist) %>% summarise(corrected_diff = mean(corrected_diff)) %>% spread(key="testRC",value="corrected_diff")  %>%  mutate(prop =  `Test on coordination`/`Test on RCs`)
+
+scont_models$merge_var <- paste(scont_models$csize,'m',scont_models$nhid,scont_models$clist, sep = '')
+
+scont_models <- merge(scont_models, acc_scont, by = 'merge_var')
+scont_models$struc <- 'Long coordination'
+
+alltypes <- rbind(src_models, scont_models)
+alltypes$csize <- factor(alltypes$csize)
+alltypes$nhid <- factor(alltypes$nhid)
+
+p <- ggplot(alltypes, aes(x = prop, y = accuracy, color = nhid,  shape = nhid)) + geom_point() + geom_smooth(method='lm', se=FALSE) + facet_wrap(~struc) + scale_color_manual(values = purples) +  labs(x = 'D(RC, non-RC)', y = 'Accuracy on agreement prediction task', color = 'Number of \nhidden units', shape = 'Number of \nhidden units', size = 'Number of hidden units') + ylim(0,1)
+p
+```
+
+![](conll2019_analyses_files/figure-markdown_github/unnamed-chunk-20-1.png)
+
+``` r
+ggsave('src_scont_acc.pdf', plot = p, device = "pdf", path = '../conll-plots/', width = 7, height = 4.3, units = "in")
+```
+
+``` r
+model_src <- lm(accuracy ~ prop + scale(nhid) + scale(csize), data = src_models)
+summary(model_src)
+```
+
+    ## 
+    ## Call:
+    ## lm(formula = accuracy ~ prop + scale(nhid) + scale(csize), data = src_models)
+    ## 
+    ## Residuals:
+    ##       Min        1Q    Median        3Q       Max 
+    ## -0.236858 -0.086944 -0.006163  0.066713  0.218295 
+    ## 
+    ## Coefficients:
+    ##              Estimate Std. Error t value Pr(>|t|)    
+    ## (Intercept)   0.96643    0.23069   4.189 7.93e-05 ***
+    ## prop         -0.21467    0.20417  -1.051    0.297    
+    ## scale(nhid)   0.08936    0.01250   7.146 6.33e-10 ***
+    ## scale(csize)  0.01598    0.01264   1.264    0.211    
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ## Residual standard error: 0.1072 on 71 degrees of freedom
+    ## Multiple R-squared:  0.4293, Adjusted R-squared:  0.4052 
+    ## F-statistic: 17.81 on 3 and 71 DF,  p-value: 1.017e-08
+
+``` r
+model_scont <- lm(accuracy ~ prop + scale(nhid) + scale(csize), data = scont_models)
+summary(model_scont)
+```
+
+    ## 
+    ## Call:
+    ## lm(formula = accuracy ~ prop + scale(nhid) + scale(csize), data = scont_models)
+    ## 
+    ## Residuals:
+    ##      Min       1Q   Median       3Q      Max 
+    ## -0.16388 -0.04801 -0.01697  0.05183  0.18940 
+    ## 
+    ## Coefficients:
+    ##               Estimate Std. Error t value Pr(>|t|)    
+    ## (Intercept)   0.799838   0.165175   4.842 7.26e-06 ***
+    ## prop         -0.124980   0.109771  -1.139  0.25872    
+    ## scale(nhid)   0.022559   0.008927   2.527  0.01373 *  
+    ## scale(csize)  0.024661   0.008131   3.033  0.00338 ** 
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ## Residual standard error: 0.06963 on 71 degrees of freedom
+    ## Multiple R-squared:  0.2386, Adjusted R-squared:  0.2064 
+    ## F-statistic: 7.416 on 3 and 71 DF,  p-value: 0.0002169
