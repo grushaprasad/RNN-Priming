@@ -1,0 +1,571 @@
+---
+title: Using Priming to Uncover the Organization of Syntactic Representations in Neural Language Models
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(plyr)
+library(ggplot2)
+library(lme4)
+library(lmerTest)
+library(RColorBrewer)
+library(ggpubr)
+library(reshape2)
+library(tidyverse)
+
+base_size <- 17
+
+theme_set(theme_bw(base_size = base_size) +
+            theme(panel.grid.major=element_blank(),
+                  panel.grid.minor=element_blank(),
+                  legend.key.size=unit(1.5, 'lines'),
+                  legend.spacing=unit(0, 'in'),
+                  axis.text.x=element_text(size=rel(1.1)),
+                  axis.title.x = element_text(size = base_size)))
+
+```
+
+
+
+
+
+**Defining functions**
+
+```{r}
+
+data_summary <- function(data, varname, groupnames, ci = TRUE){
+  require(plyr)
+   length2 <- function (x, na.rm=FALSE) {
+        if (na.rm) sum(!is.na(x))
+        else       length(x)
+    }
+
+  data_sum <- data %>% group_by(.dots = groupnames) %>% summarise(N = length2(get(varname)), mean = mean(get(varname), na.rm = TRUE), sd = sd(get(varname), na.rm = TRUE)) %>% rename(!!varname := mean)
+  
+
+  if(ci==FALSE){
+    return(data_sum)
+  }
+  else{
+    data_sum$se <- data_sum$sd / sqrt(data_sum$N)
+
+  ciMult <- qt(0.95/2 + .5, data_sum$N-1)
+  data_sum$ci <- data_sum$se * ciMult
+ return(data_sum)
+  }
+}
+
+```
+
+## Set up
+
+### Load in data from trained models
+```{r, cache = TRUE}
+
+pre_summary <- readRDS('../data/dataframes/pre_alist6-10_summary_no.unk.Rda')
+post_summary <- readRDS('../data/dataframes/post_alist6-10_summary_no.unk.Rda')
+
+drop <- c("N", "sd", "se", "ci")
+
+pre_summary <- pre_summary[,!(names(pre_summary) %in% drop)]
+colnames(pre_summary)[colnames(pre_summary)=="pre_test"] <- "test"
+
+post_summary <- post_summary[,!(names(post_summary) %in% drop)]
+colnames(post_summary)[colnames(post_summary)=="post_test"] <- "test"
+
+pre20 <- subset(pre_summary, amt == 20)
+post20 <- subset(post_summary, amt == 20)
+
+
+# Merge pre20 and post20
+pre20$merge1 <- paste(pre20$sentid, pre20$csize, pre20$clist, pre20$nhid, pre20$adaptlist, pre20$test, sep = '')
+
+post20$merge1 <- paste(post20$sentid, post20$csize, post20$clist, post20$nhid, post20$adaptlist, post20$test, sep = '')
+
+all20 <- merge(post20, pre20, by='merge1')
+
+colnames(all20)[2:8] <- c('sentid', 'csize', 'clist', 'nhid', 'adaptlist', 'test', 'amt')
+drop <- c('sentid.y', 'csize.y', 'clist.y', 'nhid.y', 'adaptlist.y', 'test.y', 'amt.y')
+all20 <- all20[,!(names(all20) %in% drop)]
+
+
+# Add relevant diff columns
+
+strucs = c('orc', 'orrc', 'prc', 'prrc','src', 'ocont','scont')
+
+# Reordering levels for correct RSM plotting
+all20$test <- factor(all20$test, levels = strucs)
+all20$adapt = factor(all20$adapt, levels = rev(strucs))
+
+```
+
+
+
+### Add in useful variables
+```{r, cache=TRUE}
+
+all20$diagonal <- ifelse(all20$adapt == all20$test, 'diagonal', 'not-diagonal')
+
+rcs <- c('orc','orrc','prc','prrc','src')
+
+all20$testRC <- ifelse(all20$test %in% rcs, 'Test on RCs', 'Test on coordination')
+all20$testRC <- factor(all20$testRC, levels = c('Test on RCs', 'Test on coordination'))
+
+all20$adaptRC <- ifelse(all20$adapt %in% rcs, 'Adapted to RCs', 'Adapted to coordination')
+all20$adaptRC <- factor(all20$adaptRC, levels = c('Adapted to RCs', 'Adapted to coordination'))
+
+```
+
+## Calculating the adaptation effect
+
+```{r, cache = TRUE}
+
+# Adapt(Y | X)
+all20$diff <- all20$pre_surp - all20$post_surp   
+
+## Plotting the relationship between diff and pre_surp
+
+p <- ggplot(all20, aes(x = diff, y = pre_surp)) + geom_point() + geom_smooth(method='lm')
+p
+
+ggsave('presurp_diff.pdf', plot = p, device = "pdf", path = '../conll-plots/', width = 7, height = 3.5, units = "in")
+
+# Fitting model for Adapt(Y | X) ~ Surp(Y)
+model <- lm(diff ~ scale(pre_surp, scale = FALSE), data = all20)
+summary(model)
+
+# AE(Y | X)
+all20$corrected_diff <- residuals(model) + coef(model)["(Intercept)"]
+
+```
+
+### Analysis 1: Validating AE as a similarity metric
+
+#### Creating Figure 2a
+
+```{r, cache=TRUE}
+
+labs <- c(
+  'Unreduced Object RC',
+  'Reduced Object RC',
+  'Unreduced Passive RC',
+  'Reduced Passive RC',
+  'Subject RC',
+  'Object coordination',
+  'Subject coordination'
+)
+
+summ_analysis1 <- data.frame(NULL)
+
+for(struc in strucs){
+  curr <- subset(all20, adapt == struc)
+  curr$structure <- ifelse(curr$test == struc, 'same', 'different')
+  curr$structure <- factor(curr$structure, levels = c('same', 'different'))
+  curr_summ <- data_summary(curr, 'corrected_diff', .(structure))
+  curr_summ$struc <- struc
+  summ_analysis1 <- rbind(summ_analysis1, curr_summ)
+}
+
+
+summ_analysis1$struc <- factor(summ_analysis1$struc, levels = rev(c('orc', 'orrc', 'prc', 'prrc','src', 'ocont','scont')))
+
+p <- ggplot(summ_analysis1, aes(struc,corrected_diff, fill = structure, group = structure)) + geom_bar(stat='identity', width=0.5, position=position_dodge(width=0.5))   + geom_errorbar(aes(ymin=corrected_diff - ci, ymax=corrected_diff + ci),  width = 0.2, position = position_dodge(0.5))  + coord_flip() + scale_x_discrete(labels = rev(labs)) + labs(x='', y='Adaptation Effect \n (bits of surprisal)', fill = 'Test structure') +  scale_fill_manual(values = c('royalblue3', 'plum1'), labels = c('Same as adaptation', 'Different from adaptation'))
+
+p
+
+ggsave('analysis1.pdf', plot = p, device = "pdf", path = '../conll-plots/', width = 7, height = 3.5, units = "in")
+
+```
+
+
+#### Running statistical analyses
+
+```{r, cache=TRUE}
+
+all_analysis1 <- data.frame(NULL)
+
+strucs = c('orc', 'orrc', 'prc', 'prrc','src', 'ocont','scont')
+
+for(struc in strucs){
+  curr <- subset(all20, adapt == struc)
+  curr$structure <- ifelse(curr$test == struc, 'same', 'different')
+  curr$structure <- factor(curr$structure, levels = c('same', 'different'))
+
+  contrasts(curr$structure) <- "contr.sum"
+
+  curr_model <- lmer(corrected_diff ~ structure + (1 | adaptlist) + (1 | clist), curr)
+
+  curr_ests <- c(coef(summary(curr_model))[, "Estimate"], coef(summary(curr_model))[, "Std. Error"], coef(summary(curr_model))[, "t value"], coef(summary(curr_model))[, "Pr(>|t|)"])
+
+  all_analysis1 <- rbind(all_analysis1, curr_ests)
+}
+
+colnames(all_analysis1) <- c('intercept.est', 'structure.est', 'intercept.se','structure.se', 'intercept.tval', 'structure.tval', 'intercept.pval', 'structure.pval')
+
+all_analysis1$struc <- strucs
+
+print(paste(all_analysis1$struc, all_analysis1$structure, round(all_analysis1$structure.est, 3), all_analysis1$structure.pval))
+
+```
+
+
+### Analysis 2: Similarity between sentences with different types of VP coordination 
+
+#### Creating Figure 2b upper panel
+```{r, cache = TRUE}
+
+no_diagonal <- subset(all20, diagonal != 'diagonal')
+
+no_diagonal$sameRC <- factor(ifelse(no_diagonal$adapt %in% rcs & no_diagonal$test %in% rcs, 'same', 
+                       ifelse(!(no_diagonal$adapt %in% rcs | no_diagonal$test %in% rcs), 'same', 'different')), levels = c('same', 'different'))
+
+no_diagonal$adaptRC <- factor(ifelse(no_diagonal$adapt %in% rcs, 'Adapt on RC', 'Adapt on coordination'), levels = c('Adapt on RC', 'Adapt on coordination'))
+
+summ_analysis2_no.diagonal <- data_summary(no_diagonal, 'corrected_diff', .(sameRC, adaptRC, testRC))
+
+ggplot(subset(summ_analysis2_no.diagonal, adaptRC == 'Adapt on coordination'), aes(testRC, corrected_diff, group = testRC, fill = sameRC)) +  geom_bar(stat='identity', width=0.5) + geom_errorbar(aes(ymin=corrected_diff - ci, ymax=corrected_diff + ci),  width = 0.2, position = position_dodge(0.9)) + theme(legend.position = "none") + labs(x = '', y = 'Adaptation effect \n (bits of surprisal)') + coord_flip() + scale_fill_manual(values = c('royalblue3', 'plum1'))
+
+```
+
+#### Statistical analyses
+
+```{r, cache=TRUE}
+
+contrasts(no_diagonal$testRC) <- "contr.sum"
+contrasts(no_diagonal$testRC)
+
+analysis2 <- lmer(corrected_diff ~ testRC +  (1 | adaptlist) + (1 | clist), subset(no_diagonal, !(adapt %in% rcs)))
+summary(analysis2)
+
+```
+
+### Analysis 3: Similarity between sentences with different types of RCs 
+
+#### Creating Figure 2b lower panel
+
+```{r, cache=TRUE}
+
+ggplot(subset(summ_analysis2_no.diagonal, adaptRC == 'Adapt on RC'), aes(testRC, corrected_diff, group = testRC, fill = sameRC)) +  geom_bar(stat='identity', width=0.5) + geom_errorbar(aes(ymin=corrected_diff - ci, ymax=corrected_diff + ci),  width = 0.2, position = position_dodge(0.9)) + theme(legend.position = "none") + labs(x = '', y = 'Adaptation effect \n (bits of surprisal)') + coord_flip() + scale_fill_manual(values = c('royalblue3', 'plum1'))
+
+```
+
+
+#### Statistical analyses
+
+```{r, cache=TRUE}
+
+contrasts(no_diagonal$testRC)
+
+analysis3 <- lmer(corrected_diff ~ testRC +  (1 | adaptlist) + (1 | clist), subset(no_diagonal, adapt %in% rcs))
+summary(analysis3)
+
+```
+
+```{r, include = FALSE}
+
+## Saving Fig 2b
+
+p <- ggplot(summ_analysis2_no.diagonal, aes(testRC, corrected_diff, group = testRC, fill = sameRC)) +  geom_bar(stat='identity', width=0.5) + geom_errorbar(aes(ymin=corrected_diff - ci, ymax=corrected_diff + ci),  width = 0.2, position = position_dodge(0.9)) + theme(legend.position = "none") + labs(x = '', y = 'Adaptation effect \n (bits of surprisal)') + coord_flip() + facet_wrap(~adaptRC, nrow=2) + scale_fill_manual(values = c('royalblue3', 'plum1'))
+
+p
+
+ggsave('analysis2.pdf', plot = p, device = "pdf", path = '../conll-plots/', width = 7, height = 3.5, units = "in")
+
+```
+
+### Analysis 4: Similarity between sentences belonging to different sub-classes of RCs
+
+#### Creating Figure 3
+```{r, cache=TRUE}
+
+passive_object <- subset(all20, adapt %in% c('prc', 'prrc', 'orc', 'orrc') & test %in% c('prc', 'prrc', 'orc', 'orrc'))
+
+passive_object$adapt.passive <- ifelse(passive_object$adapt %in% c('prc', 'prrc'), 'passive', 'object')
+passive_object$test.passive <- ifelse(passive_object$test %in% c('prc', 'prrc'), 'passive', 'object')
+passive_object$adapt.reduced <- ifelse(passive_object$adapt %in% c('prc', 'orc'), 'Unreduced RC', 'Reduced RC')
+passive_object$test.reduced <- ifelse(passive_object$test %in% c('prc', 'orc'), 'Unreduced RC', 'Reduced RC')
+
+passive_object$isPassive <- ifelse(passive_object$adapt.passive == passive_object$test.passive, 'Match', 'Mismatch')
+
+passive_object$isReduced <- ifelse(passive_object$adapt.reduced == passive_object$test.reduced, 'Match', 'Mismatch')
+
+passive_object_summ <- data_summary(passive_object, 'corrected_diff', .(isPassive, isReduced))
+passive_object_summ$isPassive <- factor(passive_object_summ$isPassive, levels = c('Match', 'Mismatch'))
+passive_object_summ$isReduced <- factor(passive_object_summ$isReduced, levels = rev(c('Match', 'Mismatch')))
+
+p <- ggplot(passive_object_summ, mapping = aes(x=isPassive, y=isReduced)) + geom_tile(aes(fill=corrected_diff)) +scale_fill_gradient(low = 'white',  high = 'steelblue') + labs(fill = 'Adaptation\nEffect', x='Passivity', y='Reduction') + geom_text(aes(label=round(corrected_diff, 2)))
+
+p
+
+ggsave('analysis4.pdf', plot = p, device = "pdf", path = '../conll-plots/', width = 5, height = 3.5, units = "in")
+```
+
+#### Statistical analyses
+
+```{r, cache=TRUE}
+
+passive_object$adapttest <- paste(passive_object$adapt, passive_object$test, sep = '')
+
+passive_object$testtype <-  ifelse(passive_object$adapttest %in% c('prrcprrc', 'orrcorrc','prcprc', 'orcorc'), 'both match', 
+                                   ifelse(passive_object$adapttest %in% c('prrcorrc', 'orrcprrc','prcorc', 'orcprc'), 'reduced match', 
+                                          ifelse(passive_object$adapttest %in% c('prrcprc', 'orrcorc','prcprrc', 'orcorrc'), 'passive match', 'no match' )))
+                                  
+
+
+analysis4_combined <- lmer(corrected_diff ~ testtype + (1 | adaptlist) + (1 | clist), passive_object)
+
+summary(analysis4_combined)
+```
+
+
+### Analysis 5: Effect of model size and training corpus size on the similarity between sentences
+
+#### Loading in models with no training
+
+```{r, cache=TRUE}
+
+## Load data
+zero_pre_summary <- readRDS('../data/dataframes/pre_summary_zero_nounk.Rda')
+zero_post_summary <- readRDS('../data/dataframes/post_summary_zero_nounk.Rda')
+
+zero_pre_summary <- subset(zero_pre_summary, adaptlist > 5)
+colnames(zero_pre_summary)[colnames(zero_pre_summary)=="pre_test"] <- "test"
+
+zero_post_summary <- subset(zero_post_summary, adaptlist > 5)
+colnames(zero_post_summary)[colnames(zero_post_summary)=="post_test"] <- "test"
+
+zero_pre_summary$merge1 <- paste(zero_pre_summary$sentid, zero_pre_summary$nhid, zero_pre_summary$adaptlist, zero_pre_summary$test, sep = '')
+
+zero_post_summary$merge1 <- paste(zero_post_summary$sentid, zero_post_summary$nhid, zero_post_summary$adaptlist, zero_post_summary$test, sep = '')
+
+all_zero <- merge(zero_pre_summary,zero_post_summary, by='merge1')
+
+colnames(all_zero)[2:5] <- c('sentid',  'nhid', 'adaptlist', 'test')
+drop <- c('sentid.y', 'csize.y', 'clist.y', 'nhid.y', 'adaptlist.y', 'test.y', 'amt.y')
+all_zero <- all_zero[,!(names(all_zero) %in% drop)]
+
+## Add variables
+all_zero$testRC <- ifelse(all_zero$test %in% rcs, 'Test on RCs', 'Test on coordination')
+all_zero$testRC <- factor(all_zero$testRC, levels = c('Test on RCs', 'Test on coordination'))
+
+all_zero$adaptRC <- ifelse(all_zero$adapt %in% rcs, 'Adapted to RCs', 'Adapted to coordination')
+all_zero$adaptRC <- factor(all_zero$adaptRC, levels = c('Adapted to RCs', 'Adapted to coordination'))
+
+all_zero$diagonal <- ifelse(all_zero$adapt == all_zero$test, 'diagonal', 'not-diagonal')
+
+## Calculate adaptation effect
+all_zero$diff <- all_zero$pre_surp - all_zero$post_surp
+
+model_zero <- lm(diff ~ scale(pre_surp, scale = FALSE), data = all_zero)
+summary(model_zero)
+
+# AE(Y | X)
+all_zero$corrected_diff <- residuals(model_zero) + coef(model_zero)["(Intercept)"]
+
+```
+
+
+#### Creating Figure 5a
+
+```{r, cache=TRUE}
+
+# RC vs. not RC
+summ_analysis5.1 <- subset(all20, adapt %in% rcs & diagonal != 'diagonal')  %>% group_by(testRC, nhid, csize, clist, adaptlist) %>% summarise(corrected_diff = mean(corrected_diff)) %>% spread(key="testRC",value="corrected_diff") %>%  mutate(prop = `Test on RCs` / `Test on coordination`) %>%  group_by(nhid, csize) %>% summarise(prop = mean(prop))
+
+summ_analysis5.1_zero <- subset(all_zero, adapt %in% rcs & diagonal != 'diagonal')  %>% group_by(testRC, nhid,adaptlist) %>% summarise(corrected_diff = mean(corrected_diff)) %>% spread(key="testRC",value="corrected_diff") %>%  mutate(prop = `Test on RCs` / `Test on coordination`) %>%  group_by(nhid) %>% summarise(prop = mean(prop))
+
+summ_analysis5.1_zero$csize <- 0
+
+summ_analysis5.1 <- bind_rows(summ_analysis5.1, summ_analysis5.1_zero)
+summ_analysis5.1$adapttype <- 'All RCs'
+
+
+# Match vs. mismatch in reduction
+all20$adaptReduced <- ifelse(all20$adapt %in% c('orrc', 'prrc'), 'reduced', 'unreduced')
+all20$testReduced <- ifelse(all20$test %in% c('orrc', 'prrc'), 'reduced', 'unreduced')
+
+all20$reduced <- ifelse(all20$adaptReduced == all20$testReduced, 'match', 'mismatch')
+
+all_zero$adaptReduced <- ifelse(all_zero$adapt %in% c('orrc', 'prrc'), 'reduced', 'unreduced')
+all_zero$testReduced <- ifelse(all_zero$test %in% c('orrc', 'prrc'), 'reduced', 'unreduced')
+
+all_zero$reduced <- ifelse(all_zero$adaptReduced == all_zero$testReduced, 'match', 'mismatch')
+
+summ_analysis5.2 <- subset(all20, adapt %in% rcs) %>% group_by(reduced, nhid, csize, clist, adaptlist) %>% summarise(corrected_diff = mean(corrected_diff)) %>% spread(key="reduced",value="corrected_diff") %>%  mutate(prop = `match` / `mismatch`) %>%  group_by(nhid, csize) %>% summarise(prop = mean(prop))
+
+summ_analysis5.2_zero <- subset(all_zero, adapt %in% rcs) %>% group_by(reduced, nhid, adaptlist) %>% summarise(corrected_diff = mean(corrected_diff)) %>% spread(key="reduced",value="corrected_diff") %>%  mutate(prop = `match` / `mismatch`) %>%  group_by(nhid) %>% summarise(prop = mean(prop))
+
+summ_analysis5.2_zero$csize <- 0
+summ_analysis5.2 <- bind_rows(summ_analysis5.2, summ_analysis5.2_zero)
+
+summ_analysis5.2$adapttype <- 'Reduced RCs' 
+
+
+# Specific RC
+
+summ_analysis5.3 <- subset(all20, adapt %in% rcs)  %>% group_by(diagonal, nhid, csize, clist, adaptlist) %>% summarise(corrected_diff = mean(corrected_diff)) %>% spread(key="diagonal",value="corrected_diff") %>%  mutate(prop = `diagonal` / `not-diagonal`) %>%  group_by(nhid, csize) %>% summarise(prop = mean(prop))
+
+summ_analysis5.3_zero <- subset(all_zero, adapt %in% rcs)  %>% group_by(diagonal, nhid,adaptlist) %>% summarise(corrected_diff = mean(corrected_diff)) %>% spread(key="diagonal",value="corrected_diff") %>%  mutate(prop = `diagonal` / `not-diagonal`) %>%  group_by(nhid) %>% summarise(prop = mean(prop))
+
+summ_analysis5.3_zero$csize <- 0
+
+summ_analysis5.3 <- bind_rows(summ_analysis5.3, summ_analysis5.3_zero)
+summ_analysis5.3$adapttype <- 'Specific RCs' 
+
+summ_analysis5 <- rbind(summ_analysis5.1, summ_analysis5.2, summ_analysis5.3)
+summ_analysis5$nhid <- factor(summ_analysis5$nhid)
+summ_analysis5$csize <- factor(summ_analysis5$csize)
+
+summ_analysis5$adapttype <- factor(summ_analysis5$adapttype, levels = c('Specific RCs', 'Reduced RCs', 'All RCs'))
+
+purples = brewer.pal(n = 9, "Purples")[3:8]
+
+p <- ggplot(subset(summ_analysis5) ,aes(x=csize, y = prop, fill = nhid)) + geom_bar(stat='identity',position='dodge') + scale_fill_manual(values = purples) + labs(x = 'Training corpus size \n (in millions of tokens)', y = 'D(Members, Non-members)', fill = 'Number of \nhidden units')  + facet_wrap(~adapttype) + geom_hline(yintercept = 1)
+
+p
+
+ggsave('analysis5.pdf', plot = p, device = "pdf", path = '../conll-plots/', width = 7, height = 3.5, units = "in")
+
+```
+
+
+#### Statistical analyses
+
+```{r, cache=TRUE}
+
+# RC vs. not RC
+analysis5.1 <- subset(all20, adapt %in% rcs & diagonal != 'diagonal')  %>% group_by(testRC, nhid, csize, clist, adaptlist) %>% summarise(corrected_diff = mean(corrected_diff)) %>% spread(key="testRC",value="corrected_diff") %>%  mutate(prop = `Test on RCs` / `Test on coordination`) 
+
+model5.1 <- lmer(prop~scale(nhid)*scale(csize) + (1|clist) + (1|adaptlist), data = analysis5.1)
+summary(model5.1)
+
+# Match vs. mismatch in reduction
+analysis5.2 <- subset(all20, adapt %in% rcs) %>% group_by(reduced, nhid, csize, clist, adaptlist) %>% summarise(corrected_diff = mean(corrected_diff)) %>% spread(key="reduced",value="corrected_diff") %>%  mutate(prop = `match` / `mismatch`) 
+
+model5.2 <- lmer(prop~scale(nhid)*scale(csize) + (1|clist) + (1|adaptlist), data = analysis5.2)
+summary(model5.2)
+
+# Specific RC
+analysis5.3 <- subset(all20, adapt %in% rcs)  %>% group_by(diagonal, nhid, csize, clist, adaptlist) %>% summarise(corrected_diff = mean(corrected_diff)) %>% spread(key="diagonal",value="corrected_diff") %>%  mutate(prop = `diagonal` / `not-diagonal`) 
+
+model5.3 <- lmer(prop~scale(nhid)*scale(csize) + (1|clist) + (1|adaptlist), data = analysis5.3)
+summary(model5.3)
+
+```
+
+
+### Analysis 6: Does D(RC, coordination) predict agreement prediction accuracy? 
+
+#### Load in accuracy data
+```{r, cache=TRUE}
+
+acc_dat <- read.table('../tied_accuracies/all_acc.dat', header = TRUE)
+
+acc_orc <- subset(acc_dat, syntax == 'obj_rel_across')
+acc_orc$merge_var <- paste(acc_orc$corpus_size, acc_orc$d_model, acc_orc$corpus_var, sep = '')
+#colnames(acc_orc)[colnames(acc_orc)=="accuracy"] <- "orc.acc"
+  
+acc_orrc <- subset(acc_dat, syntax == 'obj_rel_no_comp_across')
+acc_orrc$merge_var <- paste(acc_orrc$corpus_size, acc_orrc$d_model, acc_orrc$corpus_var, sep = '')
+#colnames(acc_orrc)[colnames(acc_orrc)=="accuracy"] <- "orrc.acc"
+
+acc_src <- subset(acc_dat, syntax == 'subj_rel')
+acc_src$merge_var <- paste(acc_src$corpus_size, acc_src$d_model, acc_src$corpus_var, sep = '')
+#colnames(acc_src)[colnames(acc_src)=="accuracy"] <- "src.acc"
+
+
+acc_scont <- subset(acc_dat, syntax == 'long_vp_coord')
+acc_scont$merge_var <- paste(acc_scont$corpus_size, acc_scont$d_model, acc_scont$corpus_var, sep = '')
+
+```
+
+
+#### Creating Figure 5b
+
+```{r, cache=TRUE}
+
+## ORC
+
+
+orc_models <- subset(all20, adapt == 'orc' & diagonal != 'diagonal') %>% group_by(testRC, nhid, csize, clist) %>% summarise(corrected_diff = mean(corrected_diff)) %>% spread(key="testRC",value="corrected_diff")  %>%  mutate(prop =  `Test on RCs`/`Test on coordination`)
+
+orc_models$merge_var <- paste(orc_models$csize,'m',orc_models$nhid,orc_models$clist, sep = '')
+
+orc_models <- merge(orc_models, acc_orc, by = 'merge_var')
+orc_models$struc <- 'Unreduced Object RC'
+
+## ORRC
+
+orrc_models <- subset(all20, adapt == 'orrc' & diagonal != 'diagonal') %>% group_by(testRC, nhid, csize, clist) %>% summarise(corrected_diff = mean(corrected_diff)) %>% spread(key="testRC",value="corrected_diff")  %>%  mutate(prop =   `Test on RCs`/`Test on coordination`)
+
+orrc_models$merge_var <- paste(orrc_models$csize,'m',orrc_models$nhid,orrc_models$clist, sep = '')
+
+orrc_models <- merge(orrc_models, acc_orrc, by = 'merge_var')
+orrc_models$struc <- 'Reduced Object RC'
+
+alltypes <- rbind(orc_models, orrc_models)
+alltypes$csize <- factor(alltypes$csize)
+alltypes$nhid <- factor(alltypes$nhid)
+
+p <- ggplot(subset(alltypes, struc != 'Subject RC'), aes(x = prop, y = accuracy, color = nhid,  shape = nhid)) + geom_point() + geom_smooth(method='lm', se=FALSE) + facet_wrap(~struc) + scale_color_manual(values = purples) +  labs(x = 'D(RC, non-RC)', y = 'Accuracy on agreement prediction task', color = 'Number of \nhidden units', shape = 'Number of \nhidden units', size = 'Number of hidden units') + ylim(0,1)
+p
+
+ggsave('analysis6_2.pdf', plot = p, device = "pdf", path = '../conll-plots/', width = 7, height = 4.3, units = "in")
+
+```
+
+
+
+```{r, cache = TRUE}
+
+model_orc <- lm(accuracy ~ prop + scale(nhid) + scale(csize), data = orc_models)
+summary(model_orc)
+
+model_orrc <- lm(accuracy ~ prop + scale(nhid) + scale(csize), data = orrc_models)
+summary(model_orrc)
+
+```
+
+
+#### Other structures
+
+```{r, cache=TRUE}
+
+## SRC
+src_models <- subset(all20, adapt == 'src' & diagonal != 'diagonal') %>% group_by(testRC, nhid, csize, clist) %>% summarise(corrected_diff = mean(corrected_diff)) %>% spread(key="testRC",value="corrected_diff")  %>%  mutate(prop =   `Test on RCs`/`Test on coordination`)
+
+src_models$merge_var <- paste(src_models$csize,'m',src_models$nhid,src_models$clist, sep = '')
+
+src_models <- merge(src_models, acc_src, by = 'merge_var')
+src_models$struc <- 'Subject RC'
+
+## SCONT
+
+scont_models <- subset(all20, adapt == 'scont' & diagonal != 'diagonal') %>% group_by(testRC, nhid, csize, clist) %>% summarise(corrected_diff = mean(corrected_diff)) %>% spread(key="testRC",value="corrected_diff")  %>%  mutate(prop =  `Test on coordination`/`Test on RCs`)
+
+scont_models$merge_var <- paste(scont_models$csize,'m',scont_models$nhid,scont_models$clist, sep = '')
+
+scont_models <- merge(scont_models, acc_scont, by = 'merge_var')
+scont_models$struc <- 'Long coordination'
+
+alltypes <- rbind(src_models, scont_models)
+alltypes$csize <- factor(alltypes$csize)
+alltypes$nhid <- factor(alltypes$nhid)
+
+p <- ggplot(alltypes, aes(x = prop, y = accuracy, color = nhid,  shape = nhid)) + geom_point() + geom_smooth(method='lm', se=FALSE) + facet_wrap(~struc) + scale_color_manual(values = purples) +  labs(x = 'D(RC, non-RC)', y = 'Accuracy on agreement prediction task', color = 'Number of \nhidden units', shape = 'Number of \nhidden units', size = 'Number of hidden units') + ylim(0,1)
+p
+
+ggsave('src_scont_acc.pdf', plot = p, device = "pdf", path = '../conll-plots/', width = 7, height = 4.3, units = "in")
+
+```
+
+```{r, cache=TRUE}
+
+model_src <- lm(accuracy ~ prop + scale(nhid) + scale(csize), data = src_models)
+summary(model_src)
+
+model_scont <- lm(accuracy ~ prop + scale(nhid) + scale(csize), data = scont_models)
+summary(model_scont)
+
+```

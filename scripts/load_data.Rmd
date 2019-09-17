@@ -1,0 +1,242 @@
+---
+title: "Load data"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+data_summary <- function(data, varname, groupnames, ci = TRUE){
+  require(plyr)
+   length2 <- function (x, na.rm=FALSE) {
+        if (na.rm) sum(!is.na(x))
+        else       length(x)
+    }
+
+  data_sum <- data %>% group_by(.dots = groupnames) %>% summarise(N = length2(get(varname)), mean = mean(get(varname), na.rm = TRUE), sd = sd(get(varname), na.rm = TRUE)) %>% rename(!!varname := mean)
+  
+
+  if(ci==FALSE){
+    return(data_sum)
+  }
+  else{
+    data_sum$se <- data_sum$sd / sqrt(data_sum$N)
+
+  ciMult <- qt(0.95/2 + .5, data_sum$N-1)
+  data_sum$ci <- data_sum$se * ciMult
+ return(data_sum)
+  }
+}
+
+```
+
+## Loading in the data from trained models
+
+```{r, cache=TRUE}
+
+## No need to run this if you already have the dataframe for pre and post
+
+fdir <- '../data/trained_model_surprisal/'
+csize <- c(2, 10, 20)
+nhid <- c(100, 200, 400, 800, 1600)
+clist <- c('a','b','c','d','e')
+#testlist <- c(1:5)
+testlist <- c(6:10)
+testtype <- c('ocont','orc','orrc','prc','prrc','scont','src')
+amts <- c(10,20)
+
+
+
+#csize_clist_nhid.testlist.testtype.testtype.post
+#csize_clist_nhid.testlist..testtype.pre
+  
+pre_list <- as.list(seq_len(5250))
+post_list <- as.list(seq_len(36750))
+pre_ind <- 1
+post_ind <- 1
+for(cl in clist) {
+  for(tl in testlist){
+    curr_fdir <- paste(fdir,cl,tl,'/', sep = '')
+    for(amt in amts) {
+      for(cs in csize){
+        for(nh in nhid) {
+          for(tt in testtype){
+            pre_fname <- (paste(curr_fdir, cs,'m', '_',cl,'_',nh, '.', amt, '_', tl, '..', tt, '.pre', sep = ''))
+            curr <- read.table(pre_fname, header = TRUE, quote = '')
+            curr$csize <- cs
+            curr$clist <- cl
+            curr$nhid <- nh
+            curr$adaptlist <- tl
+            curr$pre_test <- tt
+            curr$amt <- amt
+            colnames(curr)[colnames(curr)=="surp"] <- "pre_surp"
+            colnames(curr)[colnames(curr)=="entropy"] <- "pre_entropy"
+            colnames(curr)[colnames(curr)=="entred"] <- "pre_entred"
+            pre_list[[pre_ind]] <- curr
+            pre_ind <- pre_ind+1
+            
+            for(tt2 in testtype){
+              post_fname <- (paste(curr_fdir, cs,'m','_',cl,'_',nh, '.', amt, '_', tl, '.', tt2, '.', tt, '.post', sep = ''))
+              curr <- read.table(post_fname, header = TRUE, quote = '')
+              curr$csize <- cs
+              curr$clist <- cl
+              curr$nhid <- nh
+              curr$adaptlist <- tl
+              curr$adapt <- tt2
+              curr$amt <- amt
+              curr$post_test <- tt
+              colnames(curr)[colnames(curr)=="surp"] <- "post_surp"
+              colnames(curr)[colnames(curr)=="entropy"] <- "post_entropy"
+              colnames(curr)[colnames(curr)=="entred"] <- "post_entred"
+              post_list[[post_ind]] <- curr
+              post_ind <- post_ind+1
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+```
+
+
+```{r}
+
+## No need to run this if you already have dataframe for pre and post
+
+pre <- do.call(rbind, pre_list)
+post <- do.call(rbind, post_list)
+
+saveRDS(pre, '../data/dataframes/pre_alist6-10.Rda')
+saveRDS(post, '../data/dataframes/post_alist6-10.Rda')
+
+```
+
+### With unks
+```{r, cache=TRUE}
+
+pre <- readRDS('../data/dataframes/pre_alist6-10.Rda')
+post <- readRDS('../data/dataframes/post_alist6-10.Rda')
+
+pre_summary <- data_summary(pre, 'pre_surp', .(sentid, csize, clist, nhid, adaptlist, pre_test, amt))
+
+post_summary <- data_summary(post, 'post_surp', .(sentid, csize, clist, nhid, adaptlist, post_test, amt, adapt))
+
+saveRDS(pre, '../data/dataframes/pre_alist6-10_summary.Rda')
+saveRDS(post, '../data/dataframes/post_alist6-10_summary.Rda')
+
+```
+
+
+### Without unks
+
+```{r, cache=TRUE}
+
+pre_summary_no.unk <- data_summary(subset(pre, word != '<unk>'), 'pre_surp', .(sentid, csize, clist, nhid, adaptlist, pre_test, amt))
+
+post_summary_no.unk <- data_summary(subset(post, word != '<unk>'), 'post_surp', .(sentid, csize, clist, nhid, adaptlist, post_test, amt, adapt))
+
+saveRDS(pre_summary_no.unk, '../data/dataframes/pre_alist6-10_summary_no.unk.Rda')
+saveRDS(post_summary_no.unk, '../data/dataframes/post_alist6-10_summary_no.unk.Rda')
+
+```
+
+
+## Loading in the data from untrained randomly initialized models
+
+```{r}
+
+
+#testlist <- c(1:10)
+testlist <- c(6:10)
+nhid <- c(100, 200, 400, 800, 1600)
+testtype <- c('ocont','orc','orrc','prc','prrc','scont','src')
+seeds <- c(5, 7, 17, 81, 109)
+
+zero_pre_list <- as.list(seq_len(350))
+zero_post_list <- as.list(seq_len(2450))
+
+pre_ind <- 1
+post_ind <- 1
+
+# nhid.list.seed.adapt.test.post   OR   nhid.list.seed..test.pre
+
+fdir <- '../data/untrained_model_surprisal/'
+
+for(s in seeds){
+  for(tl in testlist){
+    for(nh in nhid) {
+       for(tt in testtype){
+            pre_fname <- (paste(fdir,nh, '.', tl, '.', s,  '..', tt, '.pre', sep = ''))
+            if(!file.exists(pre_fname)) {
+              print(pre_fname)
+            }
+            curr <- read.table(pre_fname, header = TRUE, quote = '')
+            curr$nhid <- nh
+            curr$adaptlist <- tl
+            curr$pre_test <- tt
+            curr$seed <- s
+            colnames(curr)[colnames(curr)=="surp"] <- "pre_surp"
+            colnames(curr)[colnames(curr)=="entropy"] <- "pre_entropy"
+            colnames(curr)[colnames(curr)=="entred"] <- "pre_entred"
+            zero_pre_list[[pre_ind]] <- curr
+            pre_ind <- pre_ind+1
+            
+            for(tt2 in testtype){
+              post_fname <- (paste(fdir, nh, '.', tl, '.', s, '.', tt2, '.', tt, '.post', sep = ''))
+              if(!file.exists(post_fname)) {
+                print(post_fname)
+              }
+              curr <- read.table(post_fname, header = TRUE, quote = '')
+              curr$nhid <- nh
+              curr$adaptlist <- tl
+              curr$adapt <- tt2
+              curr$post_test <- tt
+              curr$seed <- s
+              colnames(curr)[colnames(curr)=="surp"] <- "post_surp"
+              colnames(curr)[colnames(curr)=="entropy"] <- "post_entropy"
+              colnames(curr)[colnames(curr)=="entred"] <- "post_entred"
+              zero_post_list[[post_ind]] <- curr
+              post_ind <- post_ind+1
+            }
+          }
+        }
+      }
+}
+
+```
+
+
+```{r}
+
+pre_zero <- do.call(rbind, zero_pre_list)
+post_zero <- do.call(rbind, zero_post_list)
+
+```
+
+
+```{r}
+
+pre_summary_zero <- data_summary(pre_zero, 'pre_surp', .(sentid, nhid, adaptlist, pre_test, seed))
+
+post_summary_zero <- data_summary(post_zero, 'post_surp', .(sentid,  nhid, adaptlist, post_test, adapt, seed))
+
+
+pre_summary_zero_no.unk <- data_summary(subset(pre_zero, word != '<unk>'), 'pre_surp', .(sentid, nhid, adaptlist, pre_test, seed))
+
+post_summary_zero_no.unk <- data_summary(subset(post_zero, word != '<unk>'), 'post_surp', .(sentid,  nhid, adaptlist, post_test, adapt, seed))
+
+
+saveRDS(pre_summary_zero, '../data/dataframes/pre_summary_zero.Rda')
+saveRDS(post_summary_zero, '../data/dataframes/post_summary_zero.Rda')
+
+saveRDS(pre_summary_zero_no.unk, '../data/dataframes/pre_summary_zero_nounk.Rda')
+saveRDS(post_summary_zero_no.unk, '.../data/dataframes/post_summary_zero_nounk.Rda')
+
+```
+
+
