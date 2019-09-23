@@ -92,7 +92,7 @@ all20$diff <- all20$pre_surp - all20$post_surp
 
 ## Plotting the relationship between diff and pre_surp
 
-p <- ggplot(all20, aes(x = diff, y = pre_surp)) + geom_point() + geom_smooth(method='lm')
+p <- ggplot(all20, aes(x = diff, y = pre_surp)) + geom_point() + geom_smooth(method='lm') + labs(x = 'A(Y|X)', y = 'Surp(Y)')
 p
 ```
 
@@ -140,7 +140,7 @@ labs <- c(
   'Reduced Object RC',
   'Unreduced Passive RC',
   'Reduced Passive RC',
-  'Subject RC',
+  'Active Subject RC',
   'Object coordination',
   'Subject coordination'
 )
@@ -195,11 +195,12 @@ colnames(all_analysis1) <- c('intercept.est', 'structure.est', 'intercept.se','s
 
 all_analysis1$struc <- strucs
 
-print(paste(all_analysis1$struc, all_analysis1$structure, round(all_analysis1$structure.est, 3), all_analysis1$structure.pval))
+print(paste(all_analysis1$struc, all_analysis1$structure, round(all_analysis1$structure.est, 3), round(all_analysis1$structure.se, 3), all_analysis1$structure.pval))
 ```
 
-    ## [1] "orc  0.256 0"   "orrc  0.171 0"  "prc  0.229 0"   "prrc  0.1 0"   
-    ## [5] "src  0.194 0"   "ocont  0.147 0" "scont  0.145 0"
+    ## [1] "orc  0.256 0.001 0"   "orrc  0.171 0.001 0"  "prc  0.229 0.001 0"  
+    ## [4] "prrc  0.1 0.001 0"    "src  0.194 0.001 0"   "ocont  0.147 0.001 0"
+    ## [7] "scont  0.145 0.001 0"
 
 ### Analysis 2: Similarity between sentences with different types of VP coordination
 
@@ -358,9 +359,19 @@ passive_object$adapttest <- paste(passive_object$adapt, passive_object$test, sep
 passive_object$testtype <-  ifelse(passive_object$adapttest %in% c('prrcprrc', 'orrcorrc','prcprc', 'orcorc'), 'both match', 
                                    ifelse(passive_object$adapttest %in% c('prrcorrc', 'orrcprrc','prcorc', 'orcprc'), 'reduced match', 
                                           ifelse(passive_object$adapttest %in% c('prrcprc', 'orrcorc','prcprrc', 'orcorrc'), 'passive match', 'no match' )))
-                                  
 
+passive_object$testtype <- factor(passive_object$testtype, levels = c('passive match', 'reduced match', 'both match', 'no match'))
 
+contrasts(passive_object$testtype)
+```
+
+    ##               reduced match both match no match
+    ## passive match             0          0        0
+    ## reduced match             1          0        0
+    ## both match                0          1        0
+    ## no match                  0          0        1
+
+``` r
 analysis4_combined <- lmer(corrected_diff ~ testtype + (1 | adaptlist) + (1 | clist), passive_object)
 
 summary(analysis4_combined)
@@ -386,23 +397,23 @@ summary(analysis4_combined)
     ## 
     ## Fixed effects:
     ##                         Estimate Std. Error         df t value Pr(>|t|)
-    ## (Intercept)            1.183e+00  1.859e-02  7.061e+00   63.67 5.24e-11
-    ## testtypeno match      -4.674e-01  1.444e-03  3.000e+05 -323.77  < 2e-16
-    ## testtypepassive match -3.242e-01  1.444e-03  3.000e+05 -224.54  < 2e-16
-    ## testtypereduced match -3.826e-01  1.444e-03  3.000e+05 -265.03  < 2e-16
+    ## (Intercept)            8.593e-01  1.859e-02  7.062e+00   46.23 4.98e-10
+    ## testtypereduced match -5.845e-02  1.444e-03  3.000e+05  -40.49  < 2e-16
+    ## testtypeboth match     3.242e-01  1.444e-03  3.000e+05  224.54  < 2e-16
+    ## testtypeno match      -1.432e-01  1.444e-03  3.000e+05  -99.23  < 2e-16
     ##                          
     ## (Intercept)           ***
-    ## testtypeno match      ***
-    ## testtypepassive match ***
     ## testtypereduced match ***
+    ## testtypeboth match    ***
+    ## testtypeno match      ***
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
     ## Correlation of Fixed Effects:
-    ##             (Intr) tsttypnm tsttyppm
-    ## tsttypnmtch -0.039                  
-    ## tsttyppssvm -0.039  0.500           
-    ## tsttyprdcdm -0.039  0.500    0.500
+    ##             (Intr) tsttyprm tsttypbm
+    ## tsttyprdcdm -0.039                  
+    ## tsttypbthmt -0.039  0.500           
+    ## tsttypnmtch -0.039  0.500    0.500
 
 ### Analysis 5: Effect of model size and training corpus size on the similarity between sentences
 

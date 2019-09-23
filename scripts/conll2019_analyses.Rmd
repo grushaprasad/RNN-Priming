@@ -126,7 +126,7 @@ all20$diff <- all20$pre_surp - all20$post_surp
 
 ## Plotting the relationship between diff and pre_surp
 
-p <- ggplot(all20, aes(x = diff, y = pre_surp)) + geom_point() + geom_smooth(method='lm')
+p <- ggplot(all20, aes(x = diff, y = pre_surp)) + geom_point() + geom_smooth(method='lm') + labs(x = 'A(Y|X)', y = 'Surp(Y)')
 p
 
 ggsave('presurp_diff.pdf', plot = p, device = "pdf", path = '../conll-plots/', width = 7, height = 3.5, units = "in")
@@ -151,7 +151,7 @@ labs <- c(
   'Reduced Object RC',
   'Unreduced Passive RC',
   'Reduced Passive RC',
-  'Subject RC',
+  'Active Subject RC',
   'Object coordination',
   'Subject coordination'
 )
@@ -205,7 +205,7 @@ colnames(all_analysis1) <- c('intercept.est', 'structure.est', 'intercept.se','s
 
 all_analysis1$struc <- strucs
 
-print(paste(all_analysis1$struc, all_analysis1$structure, round(all_analysis1$structure.est, 3), all_analysis1$structure.pval))
+print(paste(all_analysis1$struc, all_analysis1$structure, round(all_analysis1$structure.est, 3), round(all_analysis1$structure.se, 3), all_analysis1$structure.pval))
 
 ```
 
@@ -266,6 +266,8 @@ summary(analysis3)
 
 ## Saving Fig 2b
 
+summ_analysis2_no.diagonal$adaptRC <- factor(summ_analysis2_no.diagonal$adaptRC, levels = c('Adapt on coordination', 'Adapt on RC'))
+
 p <- ggplot(summ_analysis2_no.diagonal, aes(testRC, corrected_diff, group = testRC, fill = sameRC)) +  geom_bar(stat='identity', width=0.5) + geom_errorbar(aes(ymin=corrected_diff - ci, ymax=corrected_diff + ci),  width = 0.2, position = position_dodge(0.9)) + theme(legend.position = "none") + labs(x = '', y = 'Adaptation effect \n (bits of surprisal)') + coord_flip() + facet_wrap(~adaptRC, nrow=2) + scale_fill_manual(values = c('royalblue3', 'plum1'))
 
 p
@@ -310,8 +312,10 @@ passive_object$adapttest <- paste(passive_object$adapt, passive_object$test, sep
 passive_object$testtype <-  ifelse(passive_object$adapttest %in% c('prrcprrc', 'orrcorrc','prcprc', 'orcorc'), 'both match', 
                                    ifelse(passive_object$adapttest %in% c('prrcorrc', 'orrcprrc','prcorc', 'orcprc'), 'reduced match', 
                                           ifelse(passive_object$adapttest %in% c('prrcprc', 'orrcorc','prcprrc', 'orcorrc'), 'passive match', 'no match' )))
-                                  
 
+passive_object$testtype <- factor(passive_object$testtype, levels = c('passive match', 'reduced match', 'both match', 'no match'))
+
+contrasts(passive_object$testtype)
 
 analysis4_combined <- lmer(corrected_diff ~ testtype + (1 | adaptlist) + (1 | clist), passive_object)
 
