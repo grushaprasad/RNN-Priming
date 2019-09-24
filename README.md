@@ -2,7 +2,7 @@
 
 This repository contains the templates, analysis code and the supplementary materials for the following paper:
 
-Grusha Prasad, Marten van Schijndel and Tal Linzen (2019). Using Priming to Uncover the Organization of Syntactic Representations in Neural Language Models. *Proceedings of CoNLL*.
+Grusha Prasad, Marten van Schijndel and Tal Linzen. Using Priming to Uncover the Organization of Syntactic Representations in Neural Language Models. *In the proceedings of CoNLL 2019*.
 
 ### Using the template
 In order to generate the adaptation and test sets for the seven structures described in the paper, run create_rcs.py. Edit lines 425-427 to change the number of lists and/or the number of items per adaptation and test set. 
@@ -27,4 +27,3 @@ df <- readRDS(filepath)
 If you want to compile the dataframes from scratch you can download the raw surprisal files in trained_model_surprisal.zip and untrained_model_surprisal.zip, and then use scripts/load_data.Rmd. In order to adapt and test your models from scratch, follow the instructions in this repository: https://github.com/vansky/neural-complexity
 
 The agreement_accuracy.zip file contains the agreement prediction accuracy for all the trained models on all the constructions in the Marven and Linzen syntatctic evaluation dataset (https://github.com/BeckyMarvin/LM_syneval). 
-  
