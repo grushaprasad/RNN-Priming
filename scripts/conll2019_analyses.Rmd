@@ -129,7 +129,7 @@ all20$diff <- all20$pre_surp - all20$post_surp
 p <- ggplot(all20, aes(x = diff, y = pre_surp)) + geom_point() + geom_smooth(method='lm') + labs(x = 'A(Y|X)', y = 'Surp(Y)')
 p
 
-ggsave('presurp_diff.pdf', plot = p, device = "pdf", path = '../conll-plots/', width = 7, height = 3.5, units = "in")
+ggsave('presurp_diff.jpg', plot = p, device = "jpeg", path = '../conll-plots/', width = 4, height = 2, units = "in")
 
 # Fitting model for Adapt(Y | X) ~ Surp(Y)
 model <- lm(diff ~ scale(pre_surp, scale = FALSE), data = all20)
