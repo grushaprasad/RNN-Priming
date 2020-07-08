@@ -1,4 +1,4 @@
-## Using priming to uncovering the syntactic organization in neural LMs
+## Using priming to uncover the organization of the syntactic representations in neural LMs
 
 This repository contains the templates, analysis code and the supplementary materials for the following paper:
 
