@@ -77,9 +77,9 @@ def get_adv(verb, verb_classes, adv_classes, l):
 
 def pluralize(noun):
     if random.randint(0,4) < 2:
-        return(plurals[noun])
+        return(plurals[noun], 'plural')
     else:
-        return(noun)
+        return(noun, 'singular')
 
 # To do: Add a table: is human? which for every noun specifies if it is human
 def create_sents(args):  #for one sentence]
@@ -94,6 +94,141 @@ def create_sents(args):  #for one sentence]
     subjmv_adv = args['subjmv_adv'].strip() in adverbs['time']
     objmv_adv = args['objmv_adv'].strip() in adverbs['time']
 
+    #print(args['obj'], len(str.split(args['obj'])))
+
+    if random.random() > 0.33:
+        coord = False
+    else:
+        coord = True
+
+    nwords_subj = len(str.split(args['subj']))
+    nwords_obj = len(str.split(args['obj']))
+    nwords_rcadv = len(str.split(args['rc_adv']))
+    nwords_verb = len(str.split(args['verb']))
+    nwords_subjmvadv = len(str.split(args['subjmv_adv']))
+    nwords_subjmv = len(str.split(args['subj_mv']))
+    nwords_obj2 = len(str.split(args['obj2']))
+    nwords_objmvadv = len(str.split(args['objmv_adv']))
+    nwords_objmv = len(str.split(args['verb']))
+    nwords_byphrase = len(str.split(args['by_phrase']))
+    nwords_subj_coord = len(str.split(args['subj_coord']))
+    nwords_obj_coord = len(str.split(args['obj_coord']))
+
+    #print(nwords_subj_coord, nwords_obj_coord)
+
+    subj_noun = str.split(args['subj'])[-1]
+    if subj_noun in plurals.keys():
+        subj_noun_num = 'singular'
+    elif subj_noun in plurals.values():
+        subj_noun_num = 'plural'
+    else:
+        print("DID NOT FIND WORD")
+
+
+    obj_noun = str.split(args['obj'])[-1]
+    if obj_noun in plurals.keys():
+        obj_noun_num = 'singular'
+    elif obj_noun in plurals.values():
+        obj_noun_num = 'plural'
+    else:
+        print("DID NOT FIND WORD")
+
+    obj2_noun = str.split(args['obj2'])[-1]
+    if obj2_noun in plurals.keys():
+        obj2_noun_num = 'singular'
+    elif obj2_noun in plurals.values():
+        obj2_noun_num = 'plural'
+    else:
+        print("DID NOT FIND WORD")
+
+    obj3_noun = str.split(args['obj3'])[-1]
+    if obj3_noun in plurals.keys():
+        obj3_noun_num = 'singular'
+    elif obj3_noun in plurals.values():
+        obj3_noun_num = 'plural'
+    else:
+        print("DID NOT FIND WORD")
+
+    # print(subj_noun, subj_noun_num)
+    # print(obj_noun, obj_noun_num)
+    # print(obj2_noun, obj2_noun_num)
+    # print(str.split(args['subj'])[0],str.split(args['obj'])[0],str.split(args['obj2'])[0])
+
+    if not coord:
+        if subj_noun_num == 'singular':
+            that_noun = 'subj'
+        elif obj3_noun_num == 'singular':
+            that_noun = 'obj3'
+        elif obj_noun_num == 'singular': 
+            that_noun = 'obj'
+        else:
+            that_noun = 0
+    else:
+        if subj_noun_num == 'singular':
+            that_noun = 'subj_coord'
+        elif obj3_noun_num == 'singular':
+            that_noun = 'obj3'
+        elif obj_noun_num == 'singular': 
+            that_noun = 'obj_coord'
+        else:
+            that_noun = 0
+
+    if that_noun == 0:
+        print("SENTENCE WITHOUT THAT CREATED")
+
+    #print(args[that_noun])
+
+    # used for ORC, PRC, OCONT
+    args_that = copy.deepcopy(args)
+    to_change_sent = str.split(args_that[that_noun])
+    to_change_sent[0] = 'that'
+    args_that[that_noun] = ' '.join(to_change_sent)
+
+
+    # used for SCONT
+    args_that2 = copy.deepcopy(args_that)
+    if that_noun == 'obj3':
+        if obj2_noun_num == 'singular':
+            to_change_sent = str.split(args_that2['obj2'])
+            to_change_sent[0] = 'that'
+            args_that2['obj2'] = ' '.join(to_change_sent)
+        else: #i.e. the only option is plural, so need to change to sing
+            to_change_sent = str.split(args_that2['obj2'])
+            to_change_sent[0] = 'that'
+            to_change_sent[-1] = list(plurals.keys())[list(plurals.values()).index(to_change_sent[-1])]   #this gets the singular of the plural form. 
+            args_that2['obj2'] = ' '.join(to_change_sent)
+
+
+    src_startpos = nwords_subj 
+    orc_startpos = nwords_obj
+    orrc_startpos = nwords_obj
+    prc_startpos = nwords_obj
+    prrc_startpos = nwords_obj
+    ocont_len = 1
+    scont_len = 1
+
+    if not coord:
+        src_rclen = 1 + nwords_rcadv + nwords_verb + nwords_obj 
+        orc_rclen = 1 + nwords_subj + nwords_rcadv + nwords_verb
+        orrc_rclen = nwords_subj + nwords_rcadv + nwords_verb 
+        prc_rclen = 2 + nwords_rcadv + nwords_verb + 1 + nwords_subj
+        prrc_rclen = nwords_rcadv + nwords_verb + 1 + nwords_subj
+
+        ocont_andpos = nwords_obj + nwords_rcadv + nwords_verb + nwords_subj
+        ocont_len = 1
+
+        scont_andpos = nwords_subj + nwords_rcadv + nwords_verb + nwords_obj
+        scont_len = 1
+    else:
+        src_rclen = 1 + nwords_rcadv + nwords_verb + nwords_obj_coord 
+        orc_rclen = 1 + nwords_subj_coord + nwords_rcadv + nwords_verb
+        orrc_rclen = nwords_subj_coord + nwords_rcadv + nwords_verb 
+        prc_rclen = 2 + nwords_rcadv + nwords_verb + 1 + nwords_subj_coord
+        prrc_rclen = nwords_rcadv + nwords_verb + 1 + nwords_subj_coord
+
+        ocont_andpos = nwords_obj + nwords_rcadv + nwords_verb + nwords_subj_coord
+        scont_andpos = nwords_subj + nwords_rcadv + nwords_verb + nwords_obj_coord
+
     if rc_adv and (subjmv_adv or objmv_adv):
         adv_pos = 3
     elif rc_adv:
@@ -103,44 +238,273 @@ def create_sents(args):  #for one sentence]
     else: 
         adv_pos = random.randint(0,3)
 
+    #for debugging
+    adv_pos = 2
+
     if adv_pos == 0:  # RC adv first, MV adv first
-        src = '%s that%s %s %s%s %s %s .'%(args['subj'], args['rc_adv'], args['verb'], args['obj'], args['subjmv_adv'], args['subj_mv'], args['obj2'])
-        orc = '%s that %s%s %s%s %s %s .'%(args['obj'], args['subj'], args['rc_adv'], args['verb'], args['objmv_adv'], args['obj_mv'], args['obj3'])
-        orrc = '%s %s%s %s%s %s %s .'%(args['obj'], args['subj'], args['rc_adv'], args['verb'], args['objmv_adv'], args['obj_mv'], args['obj3'])
-        prc = '%s that %s%s %s by %s%s %s %s .'%(args['obj'], was, args['rc_adv'], args['verb'], args['subj'], args['objmv_adv'], args['obj_mv'], args['obj3'])
-        prrc = '%s%s ra%s by %s%s %s %s .'%(args['obj'], args['rc_adv'], args['verb'], args['subj'], args['objmv_adv'], args['obj_mv'], args['obj3'])
-        ocont = '%s%s %s %s and%s %s %s .'%(args['obj'], args['rc_adv'], args['verb'], args['subj'], args['objmv_adv'], args['obj_mv'], args['obj3'])
-        scont = '%s%s %s %s and%s %s %s .'%(args['subj'], args['rc_adv'], args['verb'], args['obj'], args['subjmv_adv'], args['subj_mv'], args['obj2'])
+        #print(args['by_phrase'])
+        if not coord:
+            src = '%s that%s %s %s%s %s %s .'%(args['subj'], args['rc_adv'], args['verb'], args['obj'], args['subjmv_adv'], args['subj_mv'], args['obj2'])
+
+
+            orc = '%s that %s%s %s%s %s %s .'%(args['obj'], args['subj'], args['rc_adv'], args['verb'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            orrc = '%s %s%s %s%s %s %s .'%(args['obj'], args['subj'], args['rc_adv'], args['verb'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            prc = '%s that %s%s %s by %s%s %s %s .'%(args['obj'], was, args['rc_adv'], args['verb'], args['subj'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            prrc = '%s%s %s by %s%s %s %s .'%(args['obj'], args['rc_adv'], args['verb'], args['subj'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            ocont = '%s%s %s %s and%s %s %s .'%(args['obj'], args['rc_adv'], args['verb'], args['subj'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            scont = '%s%s %s %s and%s %s %s .'%(args['subj'], args['rc_adv'], args['verb'], args['obj'], args['subjmv_adv'], args['subj_mv'], args['obj2'])
+
+            orrc_that = '%s %s%s %s%s %s %s .'%(args_that['obj'], args_that['subj'], args_that['rc_adv'], args_that['verb'], args_that['objmv_adv'], args_that['obj_mv'], args_that['obj3'])
+
+            prrc_that = '%s%s %s by %s%s %s %s .'%(args_that['obj'], args_that['rc_adv'], args_that['verb'], args_that['subj'], args_that['objmv_adv'], args_that['obj_mv'], args_that['obj3'])
+
+            ocont_that = '%s%s %s %s and%s %s %s .'%(args_that['obj'], args_that['rc_adv'], args_that['verb'], args_that['subj'], args_that['objmv_adv'], args_that['obj_mv'], args_that['obj3'])
+
+            scont_that = '%s%s %s %s and%s %s %s .'%(args_that2['subj'], args_that2['rc_adv'], args_that2['verb'], args_that2['obj'], args_that2['subjmv_adv'], args_that2['subj_mv'], args_that2['obj2'])
+
+            src_by = '%s that%s %s %s %s%s %s %s .'%(args['subj'], args['rc_adv'], args['verb'], args['obj'], args['by_phrase'], args['subjmv_adv'], args['subj_mv'], args['obj2'])
+
+            orc_by = '%s that %s%s %s %s%s %s %s .'%(args['obj'], args['subj'], args['rc_adv'], args['verb'], args['by_phrase'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            orrc_by = '%s %s%s %s %s%s %s %s .'%(args['obj'], args['subj'], args['rc_adv'], args['verb'], args['by_phrase'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            scont_by = '%s%s %s %s %s and%s %s %s .'%(args['subj'], args['rc_adv'], args['verb'], args['obj'], args['by_phrase'], args['subjmv_adv'], args['subj_mv'], args['obj2'])
+
+            ocont_by = '%s%s %s %s %s and%s %s %s .'%(args['obj'], args['rc_adv'], args['verb'], args['subj'],  args['by_phrase'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+        else:
+            src = '%s that%s %s %s%s %s %s .'%(args['subj'], args['rc_adv'], args['verb'], args['obj_coord'], args['subjmv_adv'], args['subj_mv'], args['obj2'])
+
+
+            orc = '%s that %s%s %s%s %s %s .'%(args['obj'], args['subj_coord'], args['rc_adv'], args['verb'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            orrc = '%s %s%s %s%s %s %s .'%(args['obj'], args['subj_coord'], args['rc_adv'], args['verb'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            prc = '%s that %s%s %s by %s%s %s %s .'%(args['obj'], was, args['rc_adv'], args['verb'], args['subj_coord'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            prrc = '%s%s %s by %s%s %s %s .'%(args['obj'], args['rc_adv'], args['verb'], args['subj_coord'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            ocont = '%s%s %s %s and%s %s %s .'%(args['obj'], args['rc_adv'], args['verb'], args['subj_coord'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            scont = '%s%s %s %s and%s %s %s .'%(args['subj'], args['rc_adv'], args['verb'], args['obj_coord'], args['subjmv_adv'], args['subj_mv'], args['obj2'])
+
+            orrc_that = '%s %s%s %s%s %s %s .'%(args_that['obj'], args_that['subj_coord'], args_that['rc_adv'], args_that['verb'], args_that['objmv_adv'], args_that['obj_mv'], args_that['obj3'])
+
+            prrc_that = '%s%s %s by %s%s %s %s .'%(args_that['obj'], args_that['rc_adv'], args_that['verb'], args_that['subj_coord'], args_that['objmv_adv'], args_that['obj_mv'], args_that['obj3'])
+
+            ocont_that = '%s%s %s %s and%s %s %s .'%(args_that['obj'], args_that['rc_adv'], args_that['verb'], args_that['subj_coord'], args_that['objmv_adv'], args_that['obj_mv'], args_that['obj3'])
+
+            scont_that = '%s%s %s %s and%s %s %s .'%(args_that2['subj'], args_that2['rc_adv'], args_that2['verb'], args_that2['obj_coord'], args_that2['subjmv_adv'], args_that2['subj_mv'], args_that2['obj2'])
+
+            src_by = '%s that%s %s %s %s%s %s %s .'%(args['subj'], args['rc_adv'], args['verb'], args['obj_coord'], args['by_phrase'], args['subjmv_adv'], args['subj_mv'], args['obj2'])
+
+            orc_by = '%s that %s%s %s %s%s %s %s .'%(args['obj'], args['subj_coord'], args['rc_adv'], args['verb'], args['by_phrase'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            orrc_by = '%s %s%s %s %s%s %s %s .'%(args['obj'], args['subj_coord'], args['rc_adv'], args['verb'], args['by_phrase'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            scont_by = '%s%s %s %s %s and%s %s %s .'%(args['subj'], args['rc_adv'], args['verb'], args['obj_coord'], args['by_phrase'], args['subjmv_adv'], args['subj_mv'], args['obj2'])
+
+            ocont_by = '%s%s %s %s %s and%s %s %s .'%(args['obj'], args['rc_adv'], args['verb'], args['subj_coord'],  args['by_phrase'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
 
     elif adv_pos == 1:  # RC adv second, MV adv first
-        src = '%s that %s %s%s%s %s %s .'%(args['subj'], args['verb'], args['obj'], args['rc_adv'], args['subjmv_adv'], args['subj_mv'], args['obj2'])
-        orc = '%s that %s %s%s%s %s %s .'%(args['obj'], args['subj'], args['verb'], args['rc_adv'], args['objmv_adv'], args['obj_mv'], args['obj3'])
-        orrc = '%s %s %s%s%s %s %s .'%(args['obj'], args['subj'], args['verb'], args['rc_adv'], args['objmv_adv'], args['obj_mv'], args['obj3'])
-        prc = '%s that %s %s by %s%s%s %s %s .'%(args['obj'], was, args['verb'], args['subj'], args['rc_adv'], args['objmv_adv'], args['obj_mv'], args['obj3'])
-        prrc = '%s %s by %s%s%s %s %s .'%(args['obj'], args['verb'], args['subj'], args['rc_adv'], args['objmv_adv'], args['obj_mv'], args['obj3'])
-        ocont = '%s %s %s%s and%s %s %s .'%(args['obj'], args['verb'], args['subj'], args['rc_adv'], args['objmv_adv'], args['obj_mv'], args['obj3'])
-        scont = '%s %s %s%s and%s %s %s .'%(args['subj'], args['verb'], args['obj'], args['rc_adv'], args['subjmv_adv'], args['subj_mv'], args['obj2'])
+        if not coord:
+            src = '%s that %s %s%s%s %s %s .'%(args['subj'], args['verb'], args['obj'], args['rc_adv'], args['subjmv_adv'], args['subj_mv'], args['obj2'])
+
+            orc = '%s that %s %s%s%s %s %s .'%(args['obj'], args['subj'], args['verb'], args['rc_adv'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            orrc = '%s %s %s%s%s %s %s .'%(args['obj'], args['subj'], args['verb'], args['rc_adv'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            prc = '%s that %s %s by %s%s%s %s %s .'%(args['obj'], was, args['verb'], args['subj'], args['rc_adv'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            prrc = '%s %s by %s%s%s %s %s .'%(args['obj'], args['verb'], args['subj'], args['rc_adv'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            ocont = '%s %s %s%s and%s %s %s .'%(args['obj'], args['verb'], args['subj'], args['rc_adv'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            scont = '%s %s %s%s and%s %s %s .'%(args['subj'], args['verb'], args['obj'], args['rc_adv'], args['subjmv_adv'], args['subj_mv'], args['obj2'])
+
+            orrc_that = '%s %s %s%s%s %s %s .'%(args_that['obj'], args_that['subj'], args_that['verb'], args_that['rc_adv'], args_that['objmv_adv'], args_that['obj_mv'], args_that['obj3'])
+
+            prrc_that = '%s %s by %s%s%s %s %s .'%(args_that['obj'], args_that['verb'], args_that['subj'], args_that['rc_adv'], args_that['objmv_adv'], args_that['obj_mv'], args_that['obj3'])
+
+            ocont_that = '%s %s %s%s and%s %s %s .'%(args_that['obj'], args_that['verb'], args_that['subj'], args_that['rc_adv'], args_that['objmv_adv'], args_that['obj_mv'], args_that['obj3'])
+
+            scont_that = '%s %s %s%s and%s %s %s .'%(args_that2['subj'], args_that2['verb'], args_that2['obj'], args_that2['rc_adv'], args_that2['subjmv_adv'], args_that2['subj_mv'], args_that2['obj2'])
+
+            src_by = '%s that %s %s %s%s%s %s %s .'%(args['subj'], args['verb'], args['obj'], args['by_phrase'], args['rc_adv'], args['subjmv_adv'], args['subj_mv'], args['obj2']) 
+
+            orc_by = '%s that %s %s %s%s%s %s %s .'%(args['obj'], args['subj'], args['verb'], args['by_phrase'], args['rc_adv'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            orrc_by = '%s %s %s %s%s%s %s %s .'%(args['obj'], args['subj'], args['verb'], args['by_phrase'], args['rc_adv'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            ocont_by = '%s %s %s %s%s and%s %s %s .'%(args['obj'], args['verb'], args['subj'], args['by_phrase'], args['rc_adv'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            scont_by = '%s %s %s %s%s and%s %s %s .'%(args['subj'], args['verb'], args['obj'], args['by_phrase'], args['rc_adv'], args['subjmv_adv'], args['subj_mv'], args['obj2'])
+        else:
+            src = '%s that %s %s%s%s %s %s .'%(args['subj'], args['verb'], args['obj_coord'], args['rc_adv'], args['subjmv_adv'], args['subj_mv'], args['obj2'])
+
+            orc = '%s that %s %s%s%s %s %s .'%(args['obj'], args['subj_coord'], args['verb'], args['rc_adv'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            orrc = '%s %s %s%s%s %s %s .'%(args['obj'], args['subj_coord'], args['verb'], args['rc_adv'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            prc = '%s that %s %s by %s%s%s %s %s .'%(args['obj'], was, args['verb'], args['subj_coord'], args['rc_adv'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            prrc = '%s %s by %s%s%s %s %s .'%(args['obj'], args['verb'], args['subj_coord'], args['rc_adv'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            ocont = '%s %s %s%s and%s %s %s .'%(args['obj'], args['verb'], args['subj_coord'], args['rc_adv'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            scont = '%s %s %s%s and%s %s %s .'%(args['subj'], args['verb'], args['obj_coord'], args['rc_adv'], args['subjmv_adv'], args['subj_mv'], args['obj2'])
+
+            orrc_that = '%s %s %s%s%s %s %s .'%(args_that['obj'], args_that['subj_coord'], args_that['verb'], args_that['rc_adv'], args_that['objmv_adv'], args_that['obj_mv'], args_that['obj3'])
+
+            prrc_that = '%s %s by %s%s%s %s %s .'%(args_that['obj'], args_that['verb'], args_that['subj_coord'], args_that['rc_adv'], args_that['objmv_adv'], args_that['obj_mv'], args_that['obj3'])
+
+            ocont_that = '%s %s %s%s and%s %s %s .'%(args_that['obj'], args_that['verb'], args_that['subj_coord'], args_that['rc_adv'], args_that['objmv_adv'], args_that['obj_mv'], args_that['obj3'])
+
+            scont_that = '%s %s %s%s and%s %s %s .'%(args_that2['subj'], args_that2['verb'], args_that2['obj_coord'], args_that2['rc_adv'], args_that2['subjmv_adv'], args_that2['subj_mv'], args_that2['obj2'])
+
+            src_by = '%s that %s %s %s%s%s %s %s .'%(args['subj'], args['verb'], args['obj_coord'], args['by_phrase'], args['rc_adv'], args['subjmv_adv'], args['subj_mv'], args['obj2']) 
+
+            orc_by = '%s that %s %s %s%s%s %s %s .'%(args['obj'], args['subj_coord'], args['verb'], args['by_phrase'], args['rc_adv'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            orrc_by = '%s %s %s %s%s%s %s %s .'%(args['obj'], args['subj_coord'], args['verb'], args['by_phrase'], args['rc_adv'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            ocont_by = '%s %s %s %s%s and%s %s %s .'%(args['obj'], args['verb'], args['subj_coord'], args['by_phrase'], args['rc_adv'], args['objmv_adv'], args['obj_mv'], args['obj3'])
+
+            scont_by = '%s %s %s %s%s and%s %s %s .'%(args['subj'], args['verb'], args['obj_coord'], args['by_phrase'], args['rc_adv'], args['subjmv_adv'], args['subj_mv'], args['obj2'])            
 
 
     elif adv_pos == 2:  # RC adv first, MV adv second
-        src = '%s that%s %s %s %s %s%s .'%(args['subj'], args['rc_adv'], args['verb'], args['obj'], args['subj_mv'], args['obj2'], args['subjmv_adv'])
-        orc = '%s that %s%s %s %s %s%s .'%(args['obj'], args['subj'], args['rc_adv'], args['verb'], args['obj_mv'], args['obj3'], args['objmv_adv'])
-        orrc = '%s %s%s %s %s %s%s .'%(args['obj'], args['subj'], args['rc_adv'], args['verb'], args['obj_mv'], args['obj3'], args['objmv_adv'])
-        prc = '%s that %s%s %s by %s %s %s%s .'%(args['obj'], was, args['rc_adv'], args['verb'], args['subj'], args['obj_mv'], args['obj3'], args['objmv_adv'])
-        prrc = '%s%s %s by %s %s %s%s .'%(args['obj'], args['rc_adv'], args['verb'], args['subj'], args['obj_mv'], args['obj3'], args['objmv_adv'])
-        ocont = '%s%s %s %s and %s %s%s .'%(args['obj'], args['rc_adv'], args['verb'], args['subj'], args['obj_mv'], args['obj3'], args['objmv_adv'])
-        scont = '%s%s %s %s and %s %s%s .'%(args['subj'], args['rc_adv'], args['verb'], args['obj'], args['subj_mv'], args['obj2'], args['subjmv_adv'])
+        if not coord:
+            src = '%s that%s %s %s %s %s%s .'%(args['subj'], args['rc_adv'], args['verb'], args['obj'], args['subj_mv'], args['obj2'], args['subjmv_adv'])
+
+            orc = '%s that %s%s %s %s %s%s .'%(args['obj'], args['subj'], args['rc_adv'], args['verb'], args['obj_mv'], args['obj3'], args['objmv_adv'])
+
+            orrc = '%s %s%s %s %s %s%s .'%(args['obj'], args['subj'], args['rc_adv'], args['verb'], args['obj_mv'], args['obj3'], args['objmv_adv'])
+
+            prc = '%s that %s%s %s by %s %s %s%s .'%(args['obj'], was, args['rc_adv'], args['verb'], args['subj'], args['obj_mv'], args['obj3'], args['objmv_adv'])
+
+            prrc = '%s%s %s by %s %s %s%s .'%(args['obj'], args['rc_adv'], args['verb'], args['subj'], args['obj_mv'], args['obj3'], args['objmv_adv'])
+
+            ocont = '%s%s %s %s and %s %s%s .'%(args['obj'], args['rc_adv'], args['verb'], args['subj'], args['obj_mv'], args['obj3'], args['objmv_adv'])
+
+            scont = '%s%s %s %s and %s %s%s .'%(args['subj'], args['rc_adv'], args['verb'], args['obj'], args['subj_mv'], args['obj2'], args['subjmv_adv'])
+
+            orrc_that = '%s %s%s %s %s %s%s .'%(args_that['obj'], args_that['subj'], args_that['rc_adv'], args_that['verb'], args_that['obj_mv'], args_that['obj3'], args_that['objmv_adv'])
+
+            prrc_that = '%s%s %s by %s %s %s%s .'%(args_that['obj'], args_that['rc_adv'], args_that['verb'], args_that['subj'], args_that['obj_mv'], args_that['obj3'], args_that['objmv_adv'])
+
+            ocont_that = '%s%s %s %s and %s %s%s .'%(args_that['obj'], args_that['rc_adv'], args_that['verb'], args_that['subj'], args_that['obj_mv'], args_that['obj3'], args_that['objmv_adv'])
+
+            scont_that = '%s%s %s %s and %s %s%s .'%(args_that2['subj'], args_that2['rc_adv'], args_that2['verb'], args_that2['obj'], args_that2['subj_mv'], args_that2['obj2'], args_that2['subjmv_adv'])
+
+            src_by = '%s that%s %s %s %s %s %s%s .'%(args['subj'], args['rc_adv'], args['verb'], args['obj'], args['by_phrase'], args['subj_mv'], args['obj2'], args['subjmv_adv'])
+
+            orc_by = '%s that %s%s %s %s %s %s%s .'%(args['obj'], args['subj'], args['rc_adv'], args['verb'], args['by_phrase'], args['obj_mv'], args['obj3'], args['objmv_adv'])
+
+            orrc_by = '%s %s%s %s %s %s %s%s .'%(args['obj'], args['subj'], args['rc_adv'], args['verb'], args['by_phrase'], args['obj_mv'], args['obj3'], args['objmv_adv'])
+
+            ocont_by = '%s%s %s %s %s and %s %s%s .'%(args['obj'], args['rc_adv'], args['verb'], args['subj'], args['by_phrase'], args['obj_mv'], args['obj3'], args['objmv_adv'])
+
+            scont_by = '%s%s %s %s %s and %s %s%s .'%(args['subj'], args['rc_adv'], args['verb'], args['obj'], args['by_phrase'], args['subj_mv'], args['obj2'], args['subjmv_adv'])
+        else:
+            src = '%s that%s %s %s %s %s%s .'%(args['subj'], args['rc_adv'], args['verb'], args['obj_coord'], args['subj_mv'], args['obj2'], args['subjmv_adv'])
+
+            orc = '%s that %s%s %s %s %s%s .'%(args['obj'], args['subj_coord'], args['rc_adv'], args['verb'], args['obj_mv'], args['obj3'], args['objmv_adv'])
+
+            orrc = '%s %s%s %s %s %s%s .'%(args['obj'], args['subj_coord'], args['rc_adv'], args['verb'], args['obj_mv'], args['obj3'], args['objmv_adv'])
+
+            prc = '%s that %s%s %s by %s %s %s%s .'%(args['obj'], was, args['rc_adv'], args['verb'], args['subj_coord'], args['obj_mv'], args['obj3'], args['objmv_adv'])
+
+            prrc = '%s%s %s by %s %s %s%s .'%(args['obj'], args['rc_adv'], args['verb'], args['subj_coord'], args['obj_mv'], args['obj3'], args['objmv_adv'])
+
+            ocont = '%s%s %s %s and %s %s%s .'%(args['obj'], args['rc_adv'], args['verb'], args['subj_coord'], args['obj_mv'], args['obj3'], args['objmv_adv'])
+
+            scont = '%s%s %s %s and %s %s%s .'%(args['subj'], args['rc_adv'], args['verb'], args['obj_coord'], args['subj_mv'], args['obj2'], args['subjmv_adv'])
+
+            orrc_that = '%s %s%s %s %s %s%s .'%(args_that['obj'], args_that['subj_coord'], args_that['rc_adv'], args_that['verb'], args_that['obj_mv'], args_that['obj3'], args_that['objmv_adv'])
+
+            prrc_that = '%s%s %s by %s %s %s%s .'%(args_that['obj'], args_that['rc_adv'], args_that['verb'], args_that['subj_coord'], args_that['obj_mv'], args_that['obj3'], args_that['objmv_adv'])
+
+            ocont_that = '%s%s %s %s and %s %s%s .'%(args_that['obj'], args_that['rc_adv'], args_that['verb'], args_that['subj_coord'], args_that['obj_mv'], args_that['obj3'], args_that['objmv_adv'])
+
+            scont_that = '%s%s %s %s and %s %s%s .'%(args_that2['subj'], args_that2['rc_adv'], args_that2['verb'], args_that2['obj_coord'], args_that2['subj_mv'], args_that2['obj2'], args_that2['subjmv_adv'])
+
+            src_by = '%s that%s %s %s %s %s %s%s .'%(args['subj'], args['rc_adv'], args['verb'], args['obj_coord'], args['by_phrase'], args['subj_mv'], args['obj2'], args['subjmv_adv'])
+
+            orc_by = '%s that %s%s %s %s %s %s%s .'%(args['obj'], args['subj_coord'], args['rc_adv'], args['verb'], args['by_phrase'], args['obj_mv'], args['obj3'], args['objmv_adv'])
+
+            orrc_by = '%s %s%s %s %s %s %s%s .'%(args['obj'], args['subj_coord'], args['rc_adv'], args['verb'], args['by_phrase'], args['obj_mv'], args['obj3'], args['objmv_adv'])
+
+            ocont_by = '%s%s %s %s %s and %s %s%s .'%(args['obj'], args['rc_adv'], args['verb'], args['subj_coord'], args['by_phrase'], args['obj_mv'], args['obj3'], args['objmv_adv'])
+
+            scont_by = '%s%s %s %s %s and %s %s%s .'%(args['subj'], args['rc_adv'], args['verb'], args['obj_coord'], args['by_phrase'], args['subj_mv'], args['obj2'], args['subjmv_adv'])
+
 
     else: # RC adv second, MV adv second
         src = '%s that %s %s%s %s %s%s .'%(args['subj'], args['verb'], args['obj'], args['rc_adv'], args['subj_mv'], args['obj2'], args['subjmv_adv'])
+
         orc = '%s that %s %s%s %s %s%s .'%(args['obj'], args['subj'], args['verb'], args['rc_adv'], args['obj_mv'], args['obj3'], args['objmv_adv'])
+
         orrc = '%s %s %s%s %s %s%s .'%(args['obj'], args['subj'], args['verb'], args['rc_adv'], args['obj_mv'], args['obj3'], args['objmv_adv'])
+
         prc = '%s that %s %s by %s%s %s %s%s .'%(args['obj'], was, args['verb'], args['subj'], args['rc_adv'], args['obj_mv'], args['obj3'], args['objmv_adv'])
+
         prrc = '%s %s by %s%s %s %s%s .'%(args['obj'], args['verb'], args['subj'], args['rc_adv'], args['obj_mv'], args['obj3'], args['objmv_adv'])
+
         ocont = '%s %s %s%s and %s %s%s .'%(args['obj'], args['verb'], args['subj'], args['rc_adv'], args['obj_mv'], args['obj3'], args['objmv_adv'])
+
         scont = '%s %s %s%s and %s %s%s .'%(args['subj'], args['verb'], args['obj'], args['rc_adv'], args['subj_mv'], args['obj2'], args['subjmv_adv'])
 
-    return({'src': src, 'orc':orc, 'orrc':orrc, 'prc':prc, 'prrc':prrc, 'ocont': ocont, 'scont': scont})
+        orrc_that = '%s %s %s%s %s %s%s .'%(args_that['obj'], args_that['subj'], args_that['verb'], args_that['rc_adv'], args_that['obj_mv'], args_that['obj3'], args_that['objmv_adv'])
+
+        prrc_that = '%s %s by %s%s %s %s%s .'%(args_that['obj'], args_that['verb'], args_that['subj'], args_that['rc_adv'], args_that['obj_mv'], args_that['obj3'], args_that['objmv_adv'])
+
+        ocont_that = '%s %s %s%s and %s %s%s .'%(args_that['obj'], args_that['verb'], args_that['subj'], args_that['rc_adv'], args_that['obj_mv'], args_that['obj3'], args_that['objmv_adv'])
+
+        scont_that = '%s %s %s%s and %s %s%s .'%(args_that2['subj'], args_that2['verb'], args_that2['obj'], args_that2['rc_adv'], args_that2['subj_mv'], args_that2['obj2'], args_that2['subjmv_adv'])
+
+        src_by = '%s that %s %s %s%s %s %s%s .'%(args['subj'], args['verb'], args['obj'], args['by_phrase'], args['rc_adv'], args['subj_mv'], args['obj2'], args['subjmv_adv'])
+
+        orc_by = '%s that %s %s %s%s %s %s%s .'%(args['obj'], args['subj'], args['verb'], args['by_phrase'], args['rc_adv'], args['obj_mv'], args['obj3'], args['objmv_adv'])
+
+        orrc_by = '%s %s %s %s%s %s %s%s .'%(args['obj'], args['subj'], args['verb'], args['by_phrase'], args['rc_adv'], args['obj_mv'], args['obj3'], args['objmv_adv'])
+
+        ocont_by = '%s %s %s %s%s and %s %s%s .'%(args['obj'], args['verb'], args['subj'], args['by_phrase'], args['rc_adv'], args['obj_mv'], args['obj3'], args['objmv_adv'])
+
+        scont_by = '%s %s %s %s%s and %s %s%s .'%(args['subj'], args['verb'], args['obj'], args['by_phrase'], args['rc_adv'], args['subj_mv'], args['obj2'], args['subjmv_adv'])
+
+
+
+
+    # print(prrc)
+    # print(prrc_that)
+    # print(orrc)
+    # print(orrc_that)
+    # print('#######')
+    return({
+        'src': [src, src_startpos, src_rclen, subj_noun_num],
+        'orc':[orc, orc_startpos, orc_rclen, obj_noun_num],
+        'orrc':[orrc, orrc_startpos, orrc_rclen, obj_noun_num],
+        'prc':[prc, prc_startpos, prc_rclen, obj_noun_num],
+        'prrc':[prrc, prrc_startpos, prrc_rclen, obj_noun_num],
+        'ocont': [ocont, ocont_andpos, ocont_len, obj_noun_num],
+        'scont': [scont, scont_andpos, scont_len, subj_noun_num],
+        'orrc_that': [orrc_that, orrc_startpos, orrc_rclen, obj_noun_num],
+        'prrc_that':[prrc_that, prrc_startpos, prrc_rclen, obj_noun_num],
+        'ocont_that': [ocont_that, ocont_andpos, ocont_len, obj_noun_num],
+        'scont_that': [scont_that, scont_andpos, scont_len, subj_noun_num],
+        'src_by': [src_by, src_startpos, src_rclen+nwords_byphrase, subj_noun_num],
+        'orc_by':[orc_by, orc_startpos, orc_rclen+nwords_byphrase, obj_noun_num],
+        'orrc_by':[orrc_by, orrc_startpos, orrc_rclen+nwords_byphrase, obj_noun_num],
+        'ocont_by': [ocont_by, ocont_andpos+nwords_byphrase, ocont_len+nwords_byphrase, obj_noun_num],
+        'scont_by': [scont_by, scont_andpos+nwords_byphrase, scont_len+nwords_byphrase, subj_noun_num]
+        })
+    
 
 #print(list(verbs.keys())[0:10])
 
@@ -175,7 +539,7 @@ def get_classes(verb, verbs_used, verb_list, noun_classes):
     return(subj_class, subj_mv, obj_class, obj_mv)
 
 
-def create_set(verb_classes, noun_classes, adj_classes, adv_classes, n):
+def create_set(verb_classes, noun_classes, adj_classes, adv_classes, by_phrases, n):
     verb_list = list(verb_classes.keys())
     args_list = [] 
     verbs_used = set()  
@@ -186,6 +550,8 @@ def create_set(verb_classes, noun_classes, adj_classes, adv_classes, n):
     # verb_ind = 0  # having this here does not allow for verb repetition
     # random.shuffle(verb_list)
     for i in range(n):
+        random.shuffle(verb_list)
+        #print(i,len(verb_list))
         #print(i)
         verb_ind = 0  
         subj_class, subj_mv, obj_class, obj_mv = 0,0,0,0
@@ -195,8 +561,8 @@ def create_set(verb_classes, noun_classes, adj_classes, adv_classes, n):
         while not found_verb and verb_ind < len(verb_list):
             verb = verb_list[verb_ind]
             verb_ind +=1
-            # if verb not in verbs_used:
-            verbs_used.add(verb)
+            if verb not in verbs_used:
+                verbs_used.add(verb)
             subj_class, subj_mv, obj_class, obj_mv = get_classes(verb_classes[verb], verbs_used, verb_list, noun_classes)
             if subj_mv != 0 and obj_mv != 0:
                 found_verb = True
@@ -207,6 +573,11 @@ def create_set(verb_classes, noun_classes, adj_classes, adv_classes, n):
 
 
         subj_det, obj_det = get_det(subj_class, obj_class)
+        #print(subj_class)
+        # if subj_class not in noun_classes:
+        #     print(subj_class)
+        # if len(flatten(noun_classes[subj_class])) < 1:
+        #     print(flatten(noun_classes[subj_class]), subj_class)
         subj_list =  flatten(noun_classes[subj_class][0])
         subj = subj_list[random.randint(0, len(subj_list)-1)]
 
@@ -216,6 +587,7 @@ def create_set(verb_classes, noun_classes, adj_classes, adv_classes, n):
         if len(obj_list) > 1:  #if its possible to have different subject and object, do that. 
             while obj == subj:
                 obj = obj_list[random.randint(0, len(obj_list)-1)]
+
 
     # Get object for MV when subject is subject of RC
         obj2_classes = copy.deepcopy(flatten(verb_classes[subj_mv][1]))
@@ -259,12 +631,14 @@ def create_set(verb_classes, noun_classes, adj_classes, adv_classes, n):
 
         _, obj3_det = get_det(obj_class, obj3_class)
 
+        
 
         subj_adj = get_adj(subj_class, noun_classes, adj_classes, [])
         obj_adj = get_adj(obj_class, noun_classes, adj_classes, [subj_adj])
         obj2_adj = get_adj(obj2_class, noun_classes, adj_classes, [subj_adj, obj_adj])
         obj3_adj = get_adj(obj3_class, noun_classes, adj_classes, [subj_adj, obj_adj, obj2_adj])   #does this make it more likely that obj3 will not have adjs? 
         #print(subj, obj, obj2, obj3)
+
 
         nouns_used.add(subj)
         nouns_used.add(obj)
@@ -280,10 +654,78 @@ def create_set(verb_classes, noun_classes, adj_classes, adv_classes, n):
         if obj3_adj != '': 
             adjs_used.add(str.split(obj3_adj)[-1])
 
-        subj = '%s%s %s'%(subj_det, subj_adj, pluralize(subj))
-        obj = '%s%s %s'%(obj_det, obj_adj, pluralize(obj))
-        obj2 = '%s%s %s'%(obj2_det, obj2_adj, pluralize(obj2))
-        obj3 = '%s%s %s'%(obj3_det, obj3_adj, pluralize(obj3))
+        subj_noun, subj_num = pluralize(subj)
+        obj_noun, obj_num = pluralize(obj)
+        obj2_noun, obj2_num = pluralize(obj2)
+        obj3_noun, obj3_num = pluralize(obj3)
+
+        # This ensures at least subj, obj or obj3 are plural. This is important for the "orrc_that" and "prrc_that" control sentences. If all are plural, we cannot have "that" in the sentence. 
+        while subj_num == 'plural' and obj_num == 'plural' or obj3_num == 'plural':
+            subj_noun, subj_num = pluralize(subj)
+            obj_noun, obj_num = pluralize(obj)
+            obj2_noun, obj2_num = pluralize(obj2)
+            obj3_noun, obj3_num = pluralize(obj3)
+
+
+        subj = '%s%s %s'%(subj_det, subj_adj, subj_noun)
+        obj = '%s%s %s'%(obj_det, obj_adj, obj_noun)
+        obj2 = '%s%s %s'%(obj2_det, obj2_adj, obj2_noun)
+        obj3 = '%s%s %s'%(obj3_det, obj3_adj, obj3_noun)
+
+        ## Get coordinated subject for ORC, ORRC, PRC and PRRC
+        subj_coord = ''
+        random.shuffle(subj_list)
+        for item in subj_list:
+            if item not in [subj_noun, obj_noun, obj3_noun]:  #we don't include obj2 since it doesn't occur in SRCs
+                subj_coord = item
+                break
+
+        if subj_coord == '': #if you cannot find coordination without repeating, pick the item that is not being coordinated
+            for item in subj_list:
+                if item not in [subj_noun]:  
+                    subj_coord = item
+                    break  
+
+        if subj_coord == '':
+            print('DID NOT FIND COORDINATION FOR SUBJECT')
+            #print('DID NOT FIND COORDINATION FOR SUBJECT')
+
+
+
+        subj_coord_adj = get_adj(subj_class, noun_classes, adj_classes, [subj_adj, obj_adj, obj3_adj])
+        subj_coord_noun, subj_coord_num = pluralize(subj_coord)
+
+        subj_coord = '%s%s %s'%(subj_det, subj_coord_adj, subj_coord_noun)
+
+        subj_coord = '%s and %s'%(subj, subj_coord)
+
+        ## Get coordinated object for SRC
+        obj_coord = ''
+        random.shuffle(obj_list)
+        for item in obj_list:
+            if item not in [subj_noun, obj_noun, obj2_noun]:
+                obj_coord = item
+                break
+
+        if obj_coord == '': #if you cannot find coordination without repeating, pick randomly
+            for item in obj_list:
+                if item not in [obj_noun]:  
+                    obj_coord = item
+                    break  #anyway its randomly shuffled
+        
+        if obj_coord == '':
+            print('DID NOT FIND COORDINATION FOR OBJECT')
+
+        obj_coord_adj = get_adj(obj_class, noun_classes, adj_classes, [subj_adj, obj_adj, obj2_adj])
+        obj_coord_noun, obj_coord_num = pluralize(obj_coord)
+
+        obj_coord = '%s%s %s'%(subj_det, obj_coord_adj, obj_coord_noun)
+        # if obj == obj_coord:
+        #     print(obj, obj_coord)
+        obj_coord = '%s and %s'%(obj, obj_coord)
+
+
+
 
         rc_adv = get_adv(verb, verb_classes, adv_classes, [])
         subjmv_adv = get_adv(subj_mv, verb_classes, adv_classes, [rc_adv])
@@ -296,13 +738,41 @@ def create_set(verb_classes, noun_classes, adj_classes, adv_classes, n):
         if objmv_adv != '':
             advs_used.add(objmv_adv.strip())
 
+        by_phrases_set = set(verb_classes[verb][3])
+        rel_by_phrases = by_phrases_set.intersection(set(by_phrases))
+        by_phrase = random.choice(list(rel_by_phrases))
 
-        args_list.append({'verb': verb, 'subj_mv': subj_mv, 'obj_mv': obj_mv, 'subj': subj, 'obj': obj, 'obj2': obj2, 'obj3':obj3, 'rc_adv': rc_adv, 'subjmv_adv': subjmv_adv, 'objmv_adv': objmv_adv})
+        if str.split(subj)[-1] in plurals.keys():
+            subj_num = 'singular'
+        elif str.split(subj)[-1] in plurals.values():
+            subj_num = 'plural'
+        else:
+            print("DID NOT FIND WORD") 
+
+        if subj_num == 'plural' and by_phrase in ['by himself', 'by herself', 'by itself']:
+            by_phrase = 'by themselves'
+        
+
+
+        args_list.append({'verb': verb, 'subj_mv': subj_mv, 'obj_mv': obj_mv, 'subj': subj, 'obj': obj, 'obj2': obj2, 'obj3':obj3, 'rc_adv': rc_adv, 'subjmv_adv': subjmv_adv, 'objmv_adv': objmv_adv, 'by_phrase': by_phrase, 'obj_coord': obj_coord, 'subj_coord': subj_coord})
 
     return((args_list, verbs_used, nouns_used, adjs_used, advs_used))
 
 
 def get_adapt_test(nadapt, ntest):
+
+    # these groups are created to make sure every verb has at least one by phrase from each group. 
+    by_phrases1 = ['little by little', 'by email', 'by mistake', 'by himself', 'by the end of the day', 'by the river', 'by itself', 'by the artist', 'day by day']
+    
+    by_phrases2 = ['as time went by', 'by phone', 'by herself', 'by chance','by and large', 'by the lake', 'bit by bit', 'as time went by', 'step by step', 'by the end of the week', 'by the politician']
+
+    if random.randint(0,1) == 0:
+        adapt_byphrases = by_phrases1
+        test_byphrases = by_phrases2
+    else:
+        adapt_byphrases = by_phrases2
+        test_byphrases = by_phrases1
+
     ### ADAPT ###
     # Get a subset of nouns for adapt
     adapt_noun_classes = {}
@@ -330,16 +800,28 @@ def get_adapt_test(nadapt, ntest):
 
     # Get a subset of adverbs for adapt. Plus exclude noun classes if they are not in adapt
     adapt_verb_classes = {}
+    all_verbs_list = list(all_verbs.keys())
+    random.shuffle(all_verbs.keys())
 
-    for v in all_verbs.keys():
+    adapt_verbs = all_verbs_list[0:(int(len(all_verbs_list)/2))]
+    test_verbs = all_verbs_list[(int(len(all_verbs_list)/2)):]
+
+    #print(set(adapt_verbs).difference(set(test_verbs)))
+    for word in adapt_verbs:
+        if word in test_verbs:
+            print(word)
+
+    #for v in all_verbs.keys():
+    for v in adapt_verbs:
         curr_subj_classes = [x for x in all_verbs[v][0] if x in adapt_noun_classes]
         curr_obj_classes = [x for x in all_verbs[v][1] if x in adapt_noun_classes]
 
         if len(curr_subj_classes) > 0 and len(curr_obj_classes) > 0:
-            adapt_verb_classes[v] = (curr_subj_classes, curr_obj_classes, all_verbs[v][2])
+            adapt_verb_classes[v] = (curr_subj_classes, curr_obj_classes, all_verbs[v][2], all_verbs[v][3])
+
 
     # Get test set
-    adapt_args_list, verbs_used, nouns_used, adjs_used, advs_used = create_set(adapt_verb_classes, adapt_noun_classes, adapt_adj_classes, adapt_adv_classes, nadapt)
+    adapt_args_list, verbs_used, nouns_used, adjs_used, advs_used = create_set(adapt_verb_classes, adapt_noun_classes, adapt_adj_classes, adapt_adv_classes, adapt_byphrases, nadapt)
 
     ### TEST ###
     # Get nouns and adjectives not used in adapt
@@ -369,8 +851,9 @@ def get_adapt_test(nadapt, ntest):
 
     # Get verbs and adverbs not used in adapt
     test_verb_classes = {}
-    test_verbs = set(all_verbs.keys()).difference(verbs_used)
+    #test_verbs = set(all_verbs.keys()).difference(verbs_used)
 
+    print(len(test_verbs), len(adapt_verbs))
     for v in test_verbs:
         curr_subj_classes = [x for x in all_verbs[v][0] if x in test_noun_classes]
         curr_obj_classes = [x for x in all_verbs[v][1] if x in test_noun_classes]
@@ -379,52 +862,65 @@ def get_adapt_test(nadapt, ntest):
         # curr_test_advs = list(curr_all_advs.difference(advs_used))
 
         if len(curr_subj_classes) > 0 and len(curr_obj_classes) > 0:
-            test_verb_classes[v] = (curr_subj_classes, curr_obj_classes, all_verbs[v][2])
+            test_verb_classes[v] = (curr_subj_classes, curr_obj_classes, all_verbs[v][2], all_verbs[v][3])
             # print(test_verb_classes[v])
             # print(all_verbs[v])
             # print('------c')
     
     #Get test set
-    test_args_list, _, _, _, _ = create_set(test_verb_classes, test_noun_classes, test_adj_classes, test_adv_classes, ntest)
+    print("Test")
+    test_args_list, _, _, _, _ = create_set(test_verb_classes, test_noun_classes, test_adj_classes, test_adv_classes, test_byphrases, ntest)
     return(adapt_args_list, test_args_list)
 
 
 def make_files(args_list, fname):
-    conds = ['orc', 'orrc', 'ocont', 'prc', 'prrc', 'scont', 'src']
+    conds = ['orc', 'orrc', 'ocont', 'prc', 'prrc', 'scont', 'src',
+     'orrc_that', 'prrc_that', 'ocont_that', 'scont_that',
+     'src_by', 'orc_by', 'orrc_by', 'ocont_by', 'scont_by']
 
     #re-write any old files that exist
     for cond in conds:
         curr_fname = '%s_%s.txt'%(fname, cond)
         f = open(curr_fname, 'w')
+        f.write('sentence, rc_startpos, rc_length, subj_num\n')
         f.close()
 
     #add sentences to files
     for args in args_list:
         sents = create_sents(args)
+        #print(len(sents['src']))
         for sent in sents.keys():
             curr_fname = '%s_%s.txt'%(fname, sent)
             f = open(curr_fname, 'a')
-            f.write('%s\n'%sents[sent])
+            f.write('%s,%s,%s,%s\n'%(sents[sent][0], sents[sent][1], sents[sent][2], sents[sent][3]))
             f.close()
 
 
 def create_lists(l, nadapt, ntest):
     for i,name in enumerate(l):
-        if not os.path.exists('./adapt/%s'%nadapt):
-            os.makedirs('./adapt/%s'%nadapt)
-        if not os.path.exists('./test/%s'%nadapt):
-            os.makedirs('./test/%s'%nadapt)
+        if not os.path.exists('./adapt/'):
+            os.makedirs('./adapt/')
+        if not os.path.exists('./test/'):
+            os.makedirs('./test/')
 
         adapt_args, test_args = get_adapt_test(nadapt, ntest)
-        adapt_fname = './adapt/%s/list%s'%(str(nadapt), name)
+        adapt_fname = './adapt/list%s'%(name)
         make_files(adapt_args, adapt_fname)
-        test_fname = './test/%s/list%s'%(str(nadapt), name)
+        test_fname = './test/list%s'%(name)
         make_files(test_args, test_fname)
 
 
-lists = ['1','2','3','4','5','6','7','8','9','10']
-create_lists(lists, 20, 50)
-create_lists(lists, 10, 50)
+# lists = ['1','2','3','4','5','6','7','8','9','10']
+# create_lists(lists, 20, 50)
+# create_lists(lists, 10, 50)
+
+
+#create_lists(['1', '2', '3', '4', '5'], 10000, 0)
+
+#create_lists(['1'], 30000, 30000)
+
+create_lists(['A'], 10000, 10000)
+
 
 """
 Constraints:
